@@ -46,51 +46,51 @@ func (q *Query) parseHeader(line string) {
 	for idx, part := range parts {
 		part = strings.ToLower(part)
 
-		if strings.Contains(part, "query_time") {
+		if strings.Contains(part, "query_time:") {
 			q.QueryTime = parts[idx+1]
-		} else if strings.Contains(part, "lock_time") {
+		} else if strings.Contains(part, "lock_time:") {
 			q.LockTime = parts[idx+1]
-		} else if strings.Contains(part, "time") {
+		} else if strings.Contains(part, "time:") {
 			q.Time = parts[idx+1]
-		} else if strings.Contains(part, "rows_sent") {
+		} else if strings.Contains(part, "rows_sent:") {
 			q.RowsSent, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
-		} else if strings.Contains(part, "rows_examined") {
+		} else if strings.Contains(part, "rows_examined:") {
 			q.RowsExamined, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
-		} else if strings.Contains(part, "rows_affected") {
+		} else if strings.Contains(part, "rows_affected:") {
 			q.RowsAffected, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
-		} else if strings.Contains(part, "id") {
+		} else if strings.Contains(part, "id:") {
 			q.ID, err = strconv.Atoi(parts[idx+1]) // TODO(ezekiel): find an other way to get the ID, as the number of spaces can vary
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
-		} else if strings.Contains(part, "user@host") {
+		} else if strings.Contains(part, "user@host:") {
 			items := re.FindAllString(line, -1)
 			// We remove first and last bytes of the strings because they are
 			// square brackets
 			q.User = items[0][1 : len(items[0])-1]
 			q.Host = items[1][1 : len(items[1])-1]
-		} else if strings.Contains(part, "schema") {
+		} else if strings.Contains(part, "schema:") {
 			q.Schema = parts[idx+1]
-		} else if strings.Contains(part, "last_errno") {
+		} else if strings.Contains(part, "last_errno:") {
 			q.LastErrNo, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
-		} else if strings.Contains(part, "killed") {
+		} else if strings.Contains(part, "killed:") {
 			q.Killed, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
-		} else if strings.Contains(part, "bytes_sent") {
+		} else if strings.Contains(part, "bytes_sent:") {
 			q.BytesSent, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
