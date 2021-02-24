@@ -43,14 +43,14 @@ func NewParser(r io.Reader) *Parser {
 	return &p
 }
 
-// GetNext returns the next query. Some fields of Query may be empty, depending
-// on what has been parsed from the log file.
+// GetNext returns the next query, starting from the bottom. Some fields of Query
+// may be empty, depending on what has been parsed from the log file.
 func (p Parser) GetNext() (Query, error) {
 	var q Query
 	select {
 	case q := <-p.stack:
 		return q, nil
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 2):
 		close(p.stack)
 	}
 	return q, nil
