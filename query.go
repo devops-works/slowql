@@ -55,22 +55,29 @@ func (q *Query) parseHeader(line string) {
 		} else if strings.Contains(part, "rows_sent:") {
 			q.RowsSent, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("row_sent: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "rows_examined:") {
 			q.RowsExamined, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("rows_examined: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "rows_affected:") {
 			q.RowsAffected, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("rows_affected: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "id:") {
-			q.ID, err = strconv.Atoi(parts[idx+1]) // TODO(ezekiel): find an other way to get the ID, as the number of spaces can vary
+			// Some IDs can have multiple space, so we try to bruteforce the
+			// number of spaces
+			item := ""
+			for item == "" {
+				idx++
+				item = parts[idx]
+			}
+			q.ID, err = strconv.Atoi(parts[idx])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("id: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "user@host:") {
 			items := re.FindAllString(line, -1)
@@ -83,17 +90,17 @@ func (q *Query) parseHeader(line string) {
 		} else if strings.Contains(part, "last_errno:") {
 			q.LastErrNo, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("last_errno: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "killed:") {
 			q.Killed, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("killed: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "bytes_sent:") {
 			q.BytesSent, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
-				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+				logrus.Errorf("bytes_sent: error converting %s to int: %s", parts[idx+1], err)
 			}
 		}
 	}
