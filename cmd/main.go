@@ -28,10 +28,24 @@ func main() {
 	time.Sleep(4 * time.Second)
 	s.Stop()
 
-	q, err := p.GetNext()
-	if err != nil {
-		logrus.Error(err)
+	for {
+		q, err := p.GetNext()
+		if err != nil {
+			logrus.Error(err)
+		}
+		if q.Query == "" {
+			break
+		}
+		fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nQuery_time: %s\nLock_time: %s\nRows_sent: %d\nRows_examined: %d\nQuery: %s\n\n",
+			q.Time,
+			q.User,
+			q.Host,
+			q.ID,
+			q.QueryTime,
+			q.LockTime,
+			q.RowsSent,
+			q.RowsExamined,
+			q.Query,
+		)
 	}
-
-	fmt.Printf("%v\n", q)
 }
