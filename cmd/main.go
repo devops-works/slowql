@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/devops-works/slowql"
 	"github.com/sirupsen/logrus"
 )
@@ -21,9 +22,16 @@ func main() {
 	}
 	p := slowql.NewParser(fd)
 
-	time.Sleep(time.Second)
-	_, err = p.GetNext()
+	fmt.Println("Operations simulations...")
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s.Start()
+	time.Sleep(4 * time.Second)
+	s.Stop()
+
+	q, err := p.GetNext()
 	if err != nil {
 		logrus.Error(err)
 	}
+
+	fmt.Printf("%v\n", q)
 }

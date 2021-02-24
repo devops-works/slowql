@@ -3,8 +3,9 @@ package slowql
 import (
 	"bufio"
 	"io"
+	"regexp"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/eze-kiel/dbg"
 	"github.com/sirupsen/logrus"
@@ -20,17 +21,21 @@ type Parser struct {
 
 // Query contains query informations
 type Query struct {
-	Time         time.Time
+	Time         string
 	User         string
 	Host         string
-	IP           string
 	ID           int
-	QueryTime    time.Time
-	LockTime     time.Time
+	QueryTime    string
+	LockTime     string
 	RowsSent     int
 	RowsExamined int
-	Timestamp    time.Time
 	Query        string
+}
+
+var re *regexp.Regexp
+
+func init() {
+	re = regexp.MustCompile(`\[(.*?)\]`)
 }
 
 // GetNext returns the next query
@@ -111,8 +116,6 @@ func (p *Parser) scan() {
 		logrus.Error(err)
 	}
 
-	logrus.Infof("all the file has been parsed")
-
 	// Send the last bloc
 	p.rawBlocs <- bloc
 
@@ -127,7 +130,6 @@ func (p *Parser) scan() {
 func (p *Parser) consume() {
 	select {
 	case bloc := <-p.rawBlocs:
-		dbg.Printf("received new bloc\n")
 		var q Query
 
 		// consume each line of the bloc
@@ -135,16 +137,50 @@ func (p *Parser) consume() {
 			if strings.HasPrefix(line, "#") {
 				q.parseHeader(line)
 			} else {
-				q.parseRequest(line)
+				q.parseQuery(line)
 			}
 		}
+
+		p.stack <- q
 	}
 }
 
 func (q *Query) parseHeader(line string) {
+	var err error
+	parts := strings.Split(line, " ")
 
+	for idx, part := range parts {
+		part = strings.ToLower(part)
+
+		if strings.Contains(part, "query_time") {
+			q.QueryTime = parts[idx+1]
+		} else if strings.Contains(part, "lock_time") {
+			q.LockTime = parts[idx+1]
+		} else if strings.Contains(part, "time") {
+			q.Time = parts[idx+1]
+		} else if strings.Contains(part, "rows_sent") {
+			q.RowsSent, err = strconv.Atoi(parts[idx+1])
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
+		} else if strings.Contains(part, "rows_examined") {
+			q.RowsExamined, err = strconv.Atoi(parts[idx+1])
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
+		} else if strings.Contains(part, "id") {
+			q.ID, err = strconv.Atoi(parts[idx+4]) // TODO(ezekiel): this is gross, need to find an alternative
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
+		} else if strings.Contains(part, "user@host") {
+			items := re.FindAllString(line, -1)
+			q.User = items[0]
+			q.Host = items[1]
+		}
+	}
 }
 
-func (q *Query) parseRequest(line string) {
-
+func (q *Query) parseQuery(line string) {
+	q.Query = q.Query + line
 }
