@@ -61,7 +61,7 @@ Running the example given in cmd/ without any `fmt.Printf` against a 292MB slow 
 parsed 278077 queries in 8.099622786s
 ```
 
-which is approx. **34760 queries/seconds**.
+which is approx. **34760 queries/second**.
 
 ## Notes
 
