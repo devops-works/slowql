@@ -2,6 +2,8 @@ package slowql
 
 import (
 	"bufio"
+	"crypto/md5"
+	"fmt"
 	"io"
 	"regexp"
 	"strconv"
@@ -57,8 +59,10 @@ func (p Parser) GetNext() (Query, error) {
 }
 
 // Fingerprint returns Query.query's MD5 fingerprint
-func (q *Query) Fingerprint() {
-
+func (q Query) Fingerprint() string {
+	h := md5.New()
+	io.WriteString(h, q.Query)
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 // NewParser creates the stack channel and launches background goroutines
