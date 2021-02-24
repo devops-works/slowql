@@ -19,8 +19,6 @@ go get github.com/devops-works/slowql
 
 ## Basic usage
 
-You have a working example [in cmd/](https://github.com/devops-works/slowql/blob/main/cmd/main.go).
-
 To put in a nutshell, you can use it as follows:
 
 ```go
