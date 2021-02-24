@@ -1,0 +1,4 @@
+samples/*
+*.log
+*.notes
+main
