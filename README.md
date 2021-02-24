@@ -2,6 +2,15 @@
 
 A slow query logs parser in Golang.
 
+- [Gettin' started](#gettin-started)
+- [Basic usage](#basic-usage)
+- [Performances](#performances)
+- [Notes](#notes)
+  - [Tested databases](#tested-databases)
+  - [Internal](#internal)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Gettin' started
 
 ```
