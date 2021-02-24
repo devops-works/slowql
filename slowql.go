@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/eze-kiel/dbg"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,13 +41,13 @@ func init() {
 // GetNext returns the next query
 func (p Parser) GetNext() (Query, error) {
 	var q Query
-
 	select {
 	case q := <-p.stack:
 		return q, nil
-	default:
-		return q, io.EOF
+	case <-time.After(time.Second * 10):
+		close(p.stack)
 	}
+	return q, nil
 }
 
 // NewParser creates the stack channel and launches background goroutines
@@ -75,11 +75,10 @@ func (p *Parser) scan() {
 
 	for p.scanner.Scan() {
 		line := p.scanner.Text()
-
 		// Drop useless lines
-		if p.scanner.Text()[0] == '#' && strings.Contains(p.scanner.Text(), "Quit;") {
-			continue
-		}
+		// if p.scanner.Text()[0] == '#' && strings.Contains(p.scanner.Text(), "Quit;") {
+		// 	continue
+		// }
 
 		/*
 			This big if/else statement detects if the curernt line in a header
@@ -92,13 +91,10 @@ func (p *Parser) scan() {
 				// A new bloc is starting, we send the previous one if it is not
 				// the first one
 				inQuery = false
-				dbg.Point(len(bloc))
-				if len(bloc) != 0 {
+				if len(bloc) > 0 {
 					p.rawBlocs <- bloc
+					bloc = nil
 				}
-			} else {
-				// We are in the same header as before
-				bloc = append(bloc, line)
 			}
 		} else { // In request
 			inQuery = true
@@ -107,8 +103,8 @@ func (p *Parser) scan() {
 				// same bloc
 				inHeader = false
 			}
-			bloc = append(bloc, line)
 		}
+		bloc = append(bloc, line)
 	}
 
 	// In case of error, log it
@@ -128,20 +124,22 @@ func (p *Parser) scan() {
 // TODO(ezekiel): here do excatly the same thing as before, so instead of sending
 // bloc, we could conusme the lines and return the query instead
 func (p *Parser) consume() {
-	select {
-	case bloc := <-p.rawBlocs:
-		var q Query
+	for {
+		select {
+		case bloc := <-p.rawBlocs:
+			var q Query
 
-		// consume each line of the bloc
-		for _, line := range bloc {
-			if strings.HasPrefix(line, "#") {
-				q.parseHeader(line)
-			} else {
-				q.parseQuery(line)
+			// consume each line of the bloc
+			for _, line := range bloc {
+				if strings.HasPrefix(line, "#") {
+					q.parseHeader(line)
+				} else {
+					q.parseQuery(line)
+				}
 			}
-		}
 
-		p.stack <- q
+			p.stack <- q
+		}
 	}
 }
 
