@@ -29,10 +29,13 @@ type Query struct {
 }
 
 // Fingerprint returns Query.query's MD5 fingerprint.
-func (q Query) Fingerprint() string {
+func (q Query) Fingerprint() (string, error) {
 	h := md5.New()
-	io.WriteString(h, q.Query)
-	return fmt.Sprintf("%x", h.Sum(nil))
+	_, err := io.WriteString(h, q.Query)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 // parseHeader parses everything that begin with #
