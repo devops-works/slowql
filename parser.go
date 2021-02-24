@@ -9,19 +9,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Parser is the pârser object
+// Parser holds all the informations to read and consume a log file.
 type Parser struct {
-	Source    io.Reader
+	// Source is the input io.Reader
+	Source io.Reader
+
+	// StackSize is the size of the buffered channel from which GetNext() will
+	// fetch queries. The larger the number, the more CPU will be used at startup
 	StackSize int
-	stack     chan Query
-	rawBlocs  chan []string
-	scanner   bufio.Scanner
+
+	stack    chan Query
+	rawBlocs chan []string
+	scanner  bufio.Scanner
 }
 
 // NewParser returns a new slowql.Parser instance.
 // It also starts everything needed to parse logs file, which are 2 goroutines.
 // They do what they have to and require no interaction from the user. Once the
-// job terminated, they end grace fully.
+// job terminated, they terminate gracefully.
 func NewParser(r io.Reader) *Parser {
 	var p Parser
 
@@ -38,7 +43,8 @@ func NewParser(r io.Reader) *Parser {
 	return &p
 }
 
-// GetNext returns the next query.
+// GetNext returns the next query. Some fields of Query may be empty, depending
+// on what has been parsed from the log file.
 func (p Parser) GetNext() (Query, error) {
 	var q Query
 	select {
@@ -63,10 +69,8 @@ func (p *Parser) scan() {
 			continue
 		}
 
-		/*
-			This big if/else statement detects if the curernt line in a header
-			or a request, and if it belongs to the same bloc or not
-		*/
+		// This big if/else statement detects if the curernt line in a header
+		// or a request, and if it belongs to the same bloc or not
 		// In header
 		if strings.HasPrefix(line, "#") {
 			inHeader = true

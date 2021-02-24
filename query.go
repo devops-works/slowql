@@ -28,7 +28,7 @@ type Query struct {
 	Query        string
 }
 
-// Fingerprint returns Query.query's MD5 fingerprint.
+// Fingerprint returns Query.query's MD5 fingerprint
 func (q Query) Fingerprint() (string, error) {
 	h := md5.New()
 	_, err := io.WriteString(h, q.Query)
