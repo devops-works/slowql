@@ -31,15 +31,20 @@ func main() {
 		if q.Query == "" {
 			break
 		}
-		fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nQuery_time: %s\nLock_time: %s\nRows_sent: %d\nRows_examined: %d\nQuery: %s\n\n",
+		fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %s\nLock_time: %s\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n\n",
 			q.Time,
 			q.User,
 			q.Host,
 			q.ID,
+			q.Schema,
+			q.LastErrNo,
+			q.Killed,
 			q.QueryTime,
 			q.LockTime,
 			q.RowsSent,
 			q.RowsExamined,
+			q.RowsAffected,
+			q.BytesSent,
 			q.Query,
 		)
 		count++

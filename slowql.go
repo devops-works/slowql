@@ -26,10 +26,15 @@ type Query struct {
 	User         string
 	Host         string
 	ID           int
+	Schema       string
+	LastErrNo    int
+	Killed       int
 	QueryTime    string
 	LockTime     string
 	RowsSent     int
 	RowsExamined int
+	RowsAffected int
+	BytesSent    int
 	Query        string
 }
 
@@ -49,6 +54,11 @@ func (p Parser) GetNext() (Query, error) {
 		close(p.stack)
 	}
 	return q, nil
+}
+
+// Fingerprint returns Query.query's MD5 fingerprint
+func (q *Query) Fingerprint() {
+
 }
 
 // NewParser creates the stack channel and launches background goroutines
@@ -135,7 +145,7 @@ func (p *Parser) consume() {
 				if strings.HasPrefix(line, "#") {
 					q.parseHeader(line)
 				} else {
-					q.Query = line
+					q.Query = q.Query + line
 				}
 			}
 
@@ -144,6 +154,7 @@ func (p *Parser) consume() {
 	}
 }
 
+// parseHeader parses everything that begin with #
 func (q *Query) parseHeader(line string) {
 	var err error
 	parts := strings.Split(line, " ")
@@ -167,8 +178,13 @@ func (q *Query) parseHeader(line string) {
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
+		} else if strings.Contains(part, "rows_affected") {
+			q.RowsAffected, err = strconv.Atoi(parts[idx+1])
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
 		} else if strings.Contains(part, "id") {
-			q.ID, err = strconv.Atoi(parts[idx+4]) // TODO(ezekiel): this is gross, need to find an alternative
+			q.ID, err = strconv.Atoi(parts[idx+1]) // TODO(ezekiel): this is gross, need to find an alternative
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
@@ -178,6 +194,23 @@ func (q *Query) parseHeader(line string) {
 			// square brackets
 			q.User = items[0][1 : len(items[0])-1]
 			q.Host = items[1][1 : len(items[1])-1]
+		} else if strings.Contains(part, "schema") {
+			q.Schema = parts[idx+1]
+		} else if strings.Contains(part, "last_errno") {
+			q.LastErrNo, err = strconv.Atoi(parts[idx+1])
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
+		} else if strings.Contains(part, "killed") {
+			q.Killed, err = strconv.Atoi(parts[idx+1])
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
+		} else if strings.Contains(part, "bytes_sent") {
+			q.BytesSent, err = strconv.Atoi(parts[idx+1])
+			if err != nil {
+				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
+			}
 		}
 	}
 }
