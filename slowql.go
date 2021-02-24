@@ -46,7 +46,7 @@ func init() {
 	re = regexp.MustCompile(`\[(.*?)\]`)
 }
 
-// GetNext returns the next query
+// GetNext returns the next query.
 func (p Parser) GetNext() (Query, error) {
 	var q Query
 	select {
@@ -58,14 +58,17 @@ func (p Parser) GetNext() (Query, error) {
 	return q, nil
 }
 
-// Fingerprint returns Query.query's MD5 fingerprint
+// Fingerprint returns Query.query's MD5 fingerprint.
 func (q Query) Fingerprint() string {
 	h := md5.New()
 	io.WriteString(h, q.Query)
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-// NewParser creates the stack channel and launches background goroutines
+// NewParser returns a new slowql.Parser instance.
+// It also starts everything needed to parse logs file, which are 2 goroutines.
+// They do what they have to and require no interaction from the user. Once the
+// job terminated, they end grace fully.
 func NewParser(r io.Reader) *Parser {
 	var p Parser
 
@@ -135,16 +138,12 @@ func (p *Parser) scan() {
 
 // consume consumes the received line to extract the informations, and send the
 // Query object to the stack
-
-// TODO(ezekiel): here do excatly the same thing as before, so instead of sending
-// bloc, we could conusme the lines and return the query instead
 func (p *Parser) consume() {
 	for {
 		select {
 		case bloc := <-p.rawBlocs:
 			var q Query
 
-			// consume each line of the bloc
 			for _, line := range bloc {
 				if strings.HasPrefix(line, "#") {
 					q.parseHeader(line)
@@ -188,7 +187,7 @@ func (q *Query) parseHeader(line string) {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "id") {
-			q.ID, err = strconv.Atoi(parts[idx+1]) // TODO(ezekiel): this is gross, need to find an alternative
+			q.ID, err = strconv.Atoi(parts[idx+1]) // TODO(ezekiel): find an other way to get the ID, as the number of spaces can vary
 			if err != nil {
 				logrus.Errorf("error converting %s to int: %s", parts[idx+1], err)
 			}
