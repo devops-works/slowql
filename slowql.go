@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Parser is the pârser object
 type Parser struct {
 	Source    io.Reader
 	StackSize int
@@ -76,9 +77,9 @@ func (p *Parser) scan() {
 	for p.scanner.Scan() {
 		line := p.scanner.Text()
 		// Drop useless lines
-		// if p.scanner.Text()[0] == '#' && strings.Contains(p.scanner.Text(), "Quit;") {
-		// 	continue
-		// }
+		if strings.Contains(p.scanner.Text(), "SET timestamp") {
+			continue
+		}
 
 		/*
 			This big if/else statement detects if the curernt line in a header
@@ -134,7 +135,7 @@ func (p *Parser) consume() {
 				if strings.HasPrefix(line, "#") {
 					q.parseHeader(line)
 				} else {
-					q.parseQuery(line)
+					q.Query = line
 				}
 			}
 
@@ -173,12 +174,10 @@ func (q *Query) parseHeader(line string) {
 			}
 		} else if strings.Contains(part, "user@host") {
 			items := re.FindAllString(line, -1)
-			q.User = items[0]
-			q.Host = items[1]
+			// We remove first and last bytes of the strings because they are
+			// square brackets
+			q.User = items[0][1 : len(items[0])-1]
+			q.Host = items[1][1 : len(items[1])-1]
 		}
 	}
-}
-
-func (q *Query) parseQuery(line string) {
-	q.Query = q.Query + line
 }
