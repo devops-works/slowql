@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/devops-works/slowql"
 	"github.com/sirupsen/logrus"
 )
@@ -22,12 +21,8 @@ func main() {
 	}
 	p := slowql.NewParser(fd)
 
-	fmt.Println("Operations simulations...")
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Start()
-	time.Sleep(4 * time.Second)
-	s.Stop()
-
+	var count int
+	start := time.Now()
 	for {
 		q, err := p.GetNext()
 		if err != nil {
@@ -47,5 +42,9 @@ func main() {
 			q.RowsExamined,
 			q.Query,
 		)
+		count++
 	}
+
+	elapsed := time.Since(start)
+	fmt.Printf("parsed %d queries in %s\n", count, elapsed)
 }
