@@ -69,7 +69,9 @@ func (q *Query) parseHeader(line string) {
 			}
 		} else if strings.Contains(part, "id:") {
 			// Some IDs can have multiple space, so we try to bruteforce the
-			// number of spaces
+			// number of spaces. I tried implementing a version that keeps in
+			// memory the correct index after the first pass, but it was not
+			// faster that re-calculating it at each pass
 			item := ""
 			for item == "" {
 				idx++
