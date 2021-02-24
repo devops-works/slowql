@@ -62,6 +62,11 @@ func (p *Parser) scan() {
 	var bloc []string
 	inHeader, inQuery := false, false
 
+	// Skip the first three lines of the log file
+	for i := 0; i < 3; i++ {
+		p.scanner.Scan()
+	}
+
 	for p.scanner.Scan() {
 		line := p.scanner.Text()
 		// Drop useless lines
