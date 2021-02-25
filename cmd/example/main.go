@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/devops-works/slowql"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -19,37 +18,36 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	p := slowql.NewParser(fd)
 
+	p := slowql.NewParser(slowql.MariaDB, fd)
 	var count int
 	start := time.Now()
 	for {
-		q, err := p.GetNext()
-		if err != nil {
-			logrus.Error(err)
-		}
-		if q.Query == "" {
+		q := p.GetNext()
+		if q == (slowql.Query{}) {
 			break
 		}
-		// fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %s\nLock_time: %s\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
-		// 	q.Time,
-		// 	q.User,
-		// 	q.Host,
-		// 	q.ID,
-		// 	q.Schema,
-		// 	q.LastErrNo,
-		// 	q.Killed,
-		// 	q.QueryTime,
-		// 	q.LockTime,
-		// 	q.RowsSent,
-		// 	q.RowsExamined,
-		// 	q.RowsAffected,
-		// 	q.BytesSent,
-		// 	q.Query,
-		// )
+
+		fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %f\nLock_time: %f\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
+			q.Time,
+			q.User,
+			q.Host,
+			q.ID,
+			q.Schema,
+			q.LastErrNo,
+			q.Killed,
+			q.QueryTime,
+			q.LockTime,
+			q.RowsSent,
+			q.RowsExamined,
+			q.RowsAffected,
+			q.BytesSent,
+			q.Query,
+		)
 		count++
 	}
 
 	elapsed := time.Since(start)
-	fmt.Printf("parsed %d queries in %s\n", count, elapsed)
+	fmt.Printf("\nparsed %d queries in %s\n", count, elapsed)
+
 }
