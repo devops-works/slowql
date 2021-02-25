@@ -10,25 +10,53 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Query contains query informations
+// Query contains query informations. Those fields can be accessed from the
+// outside of the package to do calculation. If a field does not exists in the
+// log file, it will be empty in the returned query.
 type Query struct {
-	Time         string
-	User         string
-	Host         string
-	ID           int
-	Schema       string
-	LastErrNo    int
-	Killed       int
-	QueryTime    string
-	LockTime     string
-	RowsSent     int
+	// Date and time of the query
+	Time string
+
+	// The user who issued the query
+	User string
+
+	// The host from where the query were issued
+	Host string
+
+	// The ID of the query
+	ID int
+
+	// The table schema
+	Schema string
+
+	// Value of the error message from previous MySQL operation
+	LastErrNo int
+
+	Killed int
+
+	// Duration of the query
+	QueryTime string
+
+	// Duration of the lock time due to the query
+	LockTime string
+
+	// Rows sent during query
+	RowsSent int
+
+	// Rows examined during query
 	RowsExamined int
+
+	// Rows affected by the query
 	RowsAffected int
-	BytesSent    int
-	Query        string
+
+	// Bytes sent by the query
+	BytesSent int
+
+	// The query itself. If therre were multiple queries, they are appended
+	Query string
 }
 
-// Fingerprint returns Query.query's MD5 fingerprint
+// Fingerprint returns Query.query's MD5 fingerprint.
 func (q Query) Fingerprint() (string, error) {
 	h := md5.New()
 	_, err := io.WriteString(h, q.Query)
@@ -68,7 +96,7 @@ func (q *Query) parseHeader(line string) {
 				logrus.Errorf("rows_affected: error converting %s to int: %s", parts[idx+1], err)
 			}
 		} else if strings.Contains(part, "id:") {
-			// Some IDs can have multiple space, so we try to bruteforce the
+			// Some IDs can have multiple spaces, so we try to bruteforce the
 			// number of spaces. I tried implementing a version that keeps in
 			// memory the correct index after the first pass, but it was not
 			// faster that re-calculating it at each pass

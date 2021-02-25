@@ -9,7 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Parser holds all the informations to read and consume a log file.
+// Parser holds all the informations to read and consume a log file. It needs to
+// be created with slowql.NewParser().
 type Parser struct {
 	// Source is the input io.Reader
 	Source io.Reader
