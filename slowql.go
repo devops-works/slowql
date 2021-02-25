@@ -43,8 +43,9 @@ type Kind int
 
 // Parser is the parser interface
 type Parser interface {
-	parseBlocs(rawBlocs chan []string)
+	// GetNext returns the next query of the parser
 	GetNext() Query
+	parseBlocs(rawBlocs chan []string)
 }
 
 // NewParser returns a new parser depending on the desired kind
@@ -120,8 +121,4 @@ func scan(s bufio.Scanner, rawBlocs chan []string) {
 	rawBlocs <- bloc
 
 	close(rawBlocs)
-}
-
-func parseBlocs(rawBlocs chan []string, waitingList chan Query) {
-
 }
