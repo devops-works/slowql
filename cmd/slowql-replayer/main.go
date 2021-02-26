@@ -129,10 +129,10 @@ func (o options) createDB() (*database, error) {
 	switch strings.ToLower(o.kind) {
 	case "mysql":
 		db.kind = slowql.MySQL
-	case "pxc":
-		db.kind = slowql.PCX
 	case "mariadb":
 		db.kind = slowql.MariaDB
+	case "pxc":
+		db.kind = slowql.PCX
 	default:
 		return nil, errors.New("unknown kind " + o.kind)
 	}
@@ -143,6 +143,11 @@ func (o options) createDB() (*database, error) {
 		return nil, err
 	}
 	db.dryRun = o.dryRun
+
+	if err = db.drv.Ping(); err != nil {
+		return nil, err
+	}
+
 	return &db, nil
 }
 
