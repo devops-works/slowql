@@ -57,11 +57,11 @@ func NewParser(k Kind, r io.Reader) Parser {
 	go scan(*bufio.NewScanner(r), rawBlocs)
 
 	switch k {
-	case 0:
+	case MySQL, PCX:
 		p = &mysqlParser{
 			wl: waitingList,
 		}
-	case 1:
+	case MariaDB:
 		p = &mariadbParser{
 			wl: waitingList,
 		}
