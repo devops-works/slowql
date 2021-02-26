@@ -54,7 +54,7 @@ We tested `slowql-replay` on:
     - [X] MariaDB
     - [ ] MongoDB
     - [ ] Percona-db
-    - [ ] Percona-cluster
+    - [X] Percona-cluster
 
 * In real life
     - [ ] MySQL
