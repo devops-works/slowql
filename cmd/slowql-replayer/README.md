@@ -53,7 +53,7 @@ The following table shows all the accepted values for `-k`
 | :--------------------: | :--------: |
 |         MySQL          |   mysql    |
 |        MariaDB         |  mariadb   |
-| Percona XtraDB Cluster |    pcx     |
+| Percona XtraDB Cluster |    pxc     |
 
 ## Supported databases
 
