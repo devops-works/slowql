@@ -77,12 +77,10 @@ func main() {
 		logrus.Fatalf("cannot open slow query log file: %s", err)
 	}
 
-	logrus.Infof("starting replay")
 	r, err := db.replay(f)
 	if err != nil {
 		logrus.Fatalf("cannot replay %s: %s", opt.kind, err)
 	}
-	logrus.Infof("replay ended")
 
 	if opt.dryRun {
 		r.dryRun = "true"
@@ -153,6 +151,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 	p := slowql.NewParser(db.kind, f)
 
 	start := time.Now()
+	logrus.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	s := newSpinner(34)
 	s.Start()
 
@@ -198,6 +197,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 	s.Stop()
 	r.duration = time.Since(start)
+	logrus.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	return r, nil
 }
 
