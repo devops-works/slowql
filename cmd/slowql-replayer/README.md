@@ -45,14 +45,23 @@ At the end, a short report is displayed:
 +---------+---------+---------+--------+---------------+
 ```
 
+The following table shows all the accepted values for `-k`
+
+|        Database        | `-k` value |
+| :--------------------: | :--------: |
+|         MySQL          |   mysql    |
+|        MariaDB         |  mariadb   |
+| Percona XtraDB Cluster |    pcx     |
+
 ## Supported databases
 
-We tested `slowql-replay` on:
+We successfully tested `slowql-replay` on:
 
 * Locally
     - [X] MySQL
     - [X] MariaDB
     - [ ] MongoDB
+    - [ ] PostgreSQL
     - [ ] Percona-db
     - [X] Percona-cluster
 
@@ -60,10 +69,11 @@ We tested `slowql-replay` on:
     - [ ] MySQL
     - [ ] MariaDB
     - [ ] MongoDB
+    - [ ] PostgreSQL
     - [ ] Percona-db
     - [ ] Percona-cluster
 
-**Note:** `slowql-replayer` relies heavily on the `slowql` package, so if a databse is missing in the package, it will not be present in the replayer.
+**Note:** `slowql-replayer` relies heavily on the `slowql` package, so if a database is missing in the package, it will not be present in the replayer.
 
 ## License
 

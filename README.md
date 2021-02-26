@@ -74,6 +74,7 @@ Not all kind of slow query logs have been tested yet:
 - [ ] Percona-db
 - [X] Percona-cluster (pxc)
 - [ ] MongoDB
+- [ ] PostgreSQL
 
 ### Internal
 
