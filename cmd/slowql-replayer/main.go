@@ -200,13 +200,13 @@ func (db *database) replay(f io.Reader) (results, error) {
 		s.Suffix = " queries replayed: " + strconv.Itoa(r.queries)
 
 		if !db.dryRun {
-			conn, err := db.drv.Query(q.Query)
+			rows, err := db.drv.Query(q.Query)
 			if err != nil {
 				r.errors++
 				db.logger.Debugf("failed to execute query:\n%s\nerror: %s", q.Query, err)
 			}
-			if conn != nil {
-				conn.Close()
+			if rows != nil {
+				rows.Close()
 			}
 		}
 
