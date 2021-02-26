@@ -28,6 +28,7 @@ type options struct {
 	file     string
 	kind     string
 	database string
+	loglvl   string
 	usePass  bool
 	dryRun   bool
 }
@@ -37,6 +38,7 @@ type database struct {
 	datasource string
 	drv        *sql.DB
 	dryRun     bool
+	logger     *logrus.Logger
 }
 
 type results struct {
@@ -55,6 +57,7 @@ func main() {
 	flag.StringVar(&opt.file, "f", "", "Slow query log file to use")
 	flag.StringVar(&opt.kind, "k", "", "Kind of the database (mysql, mariadb...)")
 	flag.StringVar(&opt.database, "db", "", "Name of the database to use")
+	flag.StringVar(&opt.loglvl, "l", "info", "Logging level")
 	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
 	flag.BoolVar(&opt.dryRun, "dry", false, "Replay the requests but don't write in the database")
 	flag.Parse()
@@ -63,19 +66,19 @@ func main() {
 		flag.Usage()
 		logrus.Fatalf("cannot parse options: %s", err)
 	}
-	logrus.Infof("options parsed successfully")
 
 	db, err := opt.createDB()
 	if err != nil {
 		logrus.Fatalf("cannot create databse object: %s", err)
 	}
 	defer db.drv.Close()
-	logrus.Infof("database object created successfully")
+	db.logger.Debug("database object successfully created")
 
 	f, err := os.Open(opt.file)
 	if err != nil {
 		logrus.Fatalf("cannot open slow query log file: %s", err)
 	}
+	db.logger.Debugf("file %s successfully opened", opt.file)
 
 	r, err := db.replay(f)
 	if err != nil {
@@ -148,6 +151,28 @@ func (o options) createDB() (*database, error) {
 		return nil, err
 	}
 
+	db.logger = logrus.New()
+	switch o.loglvl {
+	case "trace":
+		db.logger.SetLevel(logrus.TraceLevel)
+	case "debug":
+		db.logger.SetLevel(logrus.DebugLevel)
+	case "info":
+		db.logger.SetLevel(logrus.InfoLevel)
+	case "warn":
+		db.logger.SetLevel(logrus.WarnLevel)
+	case "error", "err":
+		db.logger.SetLevel(logrus.ErrorLevel)
+	case "fatal":
+		db.logger.SetLevel(logrus.FatalLevel)
+	case "panic":
+		db.logger.SetLevel(logrus.PanicLevel)
+	default:
+		logrus.Errorf("unknown log level %s, using 'info'", o.loglvl)
+		db.logger.SetLevel(logrus.InfoLevel)
+	}
+	db.logger.Debugf("log level set to %s", db.logger.GetLevel())
+
 	return &db, nil
 }
 
@@ -158,7 +183,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 	p := slowql.NewParser(db.kind, f)
 
 	start := time.Now()
-	logrus.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
+	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	s := newSpinner(34)
 	s.Start()
 
@@ -169,6 +194,8 @@ func (db *database) replay(f io.Reader) (results, error) {
 		if q == (slowql.Query{}) {
 			break
 		}
+		db.logger.Tracef("query: %s", q.Query)
+
 		r.queries++
 		s.Suffix = " queries replayed: " + strconv.Itoa(r.queries)
 
@@ -176,7 +203,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 			conn, err := db.drv.Query(q.Query)
 			if err != nil {
 				r.errors++
-				// logrus.Errorf("failed to execute query:\n%s\nerror: %s", q.Query, err)
+				db.logger.Debugf("failed to execute query:\n%s\nerror: %s", q.Query, err)
 			}
 			if conn != nil {
 				conn.Close()
@@ -192,6 +219,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 		now := q.Time
 		sleeping := now.Sub(previousDate)
+		db.logger.Tracef("next sleeping time: %s", sleeping)
 		time.Sleep(sleeping)
 
 		// For MariaDB, when there is multiple queries in a short amount of
@@ -204,7 +232,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 	s.Stop()
 	r.duration = time.Since(start)
-	logrus.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
+	db.logger.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	return r, nil
 }
 

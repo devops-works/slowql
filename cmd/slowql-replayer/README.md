@@ -22,6 +22,8 @@ Usage of ./slowql-replayer:
         Addres of the database, with IP and port
   -k string
         Kind of the database (mysql, mariadb...)
+  -l string
+        Logging level (default "info")
   -p    Use a password to connect to database
   -u string
         User to use to connect to database
