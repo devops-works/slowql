@@ -129,6 +129,8 @@ func (o options) createDB() (*database, error) {
 	switch strings.ToLower(o.kind) {
 	case "mysql":
 		db.kind = slowql.MySQL
+	case "pxc":
+		db.kind = slowql.PCX
 	case "mariadb":
 		db.kind = slowql.MariaDB
 	default:
