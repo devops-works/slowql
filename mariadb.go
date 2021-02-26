@@ -1,7 +1,6 @@
 package slowql
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -68,7 +67,6 @@ func (q *Query) parseMariaDBHeader(line string) {
 
 		} else if strings.Contains(part, "time:") {
 			date := parts[idx+1] + " " + parts[idx+2]
-			fmt.Printf("\n\n\n%s\n\n\n\n", date)
 			q.Time, err = time.Parse("060102 15:04:05", date)
 			if err != nil {
 				logrus.Errorf("time: error converting %s to time: %s", parts[idx+1], err)
