@@ -73,6 +73,7 @@ Not all kind of slow query logs have been tested yet:
 - [X] MariaDB
 - [ ] Percona-db
 - [ ] Percona-cluster (pxc)
+- [ ] MongoDB
 
 ### Internal
 
