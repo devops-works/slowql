@@ -22,7 +22,7 @@ func (p *mysqlParser) parseBlocs(rawBlocs chan []string) {
 			var q Query
 
 			for _, line := range bloc {
-				if strings.HasPrefix(line, "#") {
+				if line[0] == '#' {
 					q.parseMySQLHeader(line)
 				} else {
 					q.Query = q.Query + line
