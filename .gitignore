@@ -2,4 +2,3 @@ samples/*
 *.log
 *.notes
 main
-slowql-replayer
