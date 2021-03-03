@@ -15,6 +15,7 @@ import (
 
 	"github.com/briandowns/spinner"
 	"github.com/devops-works/slowql"
+	"github.com/devops-works/slowql/cmd/slowql-replayer/pprof"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
@@ -30,6 +31,7 @@ type options struct {
 	kind     string
 	database string
 	loglvl   string
+	pprof    string
 	workers  int
 	usePass  bool
 	dryRun   bool
@@ -61,6 +63,7 @@ func main() {
 	flag.StringVar(&opt.kind, "k", "", "Kind of the database (mysql, mariadb...)")
 	flag.StringVar(&opt.database, "db", "", "Name of the database to use")
 	flag.StringVar(&opt.loglvl, "l", "info", "Logging level")
+	flag.StringVar(&opt.pprof, "pprof", "", "pprof server address")
 	flag.IntVar(&opt.workers, "w", 100, "Number of maximum simultaneous connections to database")
 	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
 	flag.BoolVar(&opt.dryRun, "dry", false, "Replay the requests but don't write in the database")
@@ -83,6 +86,15 @@ func main() {
 		logrus.Fatalf("cannot open slow query log file: %s", err)
 	}
 	db.logger.Debugf("file %s successfully opened", opt.file)
+
+	if opt.pprof != "" {
+		pprofServer, err := pprof.New(opt.pprof)
+		if err != nil {
+			db.logger.Fatalf("unable to create pprof server: %s", err)
+		}
+		go pprofServer.Run()
+		db.logger.Infof("pprof started on 'http://%s'", pprofServer.Addr)
+	}
 
 	r, err := db.replay(f)
 	if err != nil {
