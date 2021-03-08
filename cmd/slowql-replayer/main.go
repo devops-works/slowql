@@ -308,7 +308,6 @@ func (db database) worker(queries chan string, errors chan error, wg *sync.WaitG
 			}
 			if rows != nil {
 				rows.Close()
-
 			}
 		}
 	}
