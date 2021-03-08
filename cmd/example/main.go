@@ -19,7 +19,7 @@ func main() {
 		panic(err)
 	}
 
-	p := slowql.NewParser(slowql.MariaDB, fd)
+	p := slowql.NewParser(slowql.MySQL, fd)
 	var count int
 	start := time.Now()
 	for {
@@ -28,26 +28,29 @@ func main() {
 			break
 		}
 
-		fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %f\nLock_time: %f\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
-			q.Time,
-			q.User,
-			q.Host,
-			q.ID,
-			q.Schema,
-			q.LastErrNo,
-			q.Killed,
-			q.QueryTime,
-			q.LockTime,
-			q.RowsSent,
-			q.RowsExamined,
-			q.RowsAffected,
-			q.BytesSent,
-			q.Query,
-		)
+		// show(q)
+
 		count++
 	}
-
 	elapsed := time.Since(start)
 	fmt.Printf("\nparsed %d queries in %s\n", count, elapsed)
+}
 
+func show(q slowql.Query) {
+	fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %f\nLock_time: %f\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
+		q.Time,
+		q.User,
+		q.Host,
+		q.ID,
+		q.Schema,
+		q.LastErrNo,
+		q.Killed,
+		q.QueryTime,
+		q.LockTime,
+		q.RowsSent,
+		q.RowsExamined,
+		q.RowsAffected,
+		q.BytesSent,
+		q.Query,
+	)
 }
