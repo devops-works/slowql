@@ -55,6 +55,7 @@ type Kind int
 type Parser interface {
 	// GetNext returns the next query of the parser
 	GetNext() Query
+	// GetServerMeta returns informations about the SQL server in usage
 	GetServerMeta() Server
 	parseBlocs(rawBlocs chan []string)
 	parseServerMeta(chan []string)

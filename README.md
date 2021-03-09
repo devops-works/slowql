@@ -50,6 +50,9 @@ func main() {
         panic(err)
     }
     fmt.Printf("the query fingerprint is: %s\n", fp)
+
+    srv := p.GetServerMeta()
+    fmt.Printf("the SQL server listens ton port %d", srv.Port)
 }
 ```
 
