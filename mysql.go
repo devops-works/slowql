@@ -1,6 +1,7 @@
 package slowql
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +14,11 @@ const MySQL Kind = 0
 
 type mysqlParser struct {
 	wl chan Query
+	sm chan Server
 }
+
+// srv holds the server configuration so we can access it multiple times
+var srv Server
 
 func (p *mysqlParser) parseBlocs(rawBlocs chan []string) {
 	for {
@@ -134,4 +139,39 @@ func (q *Query) parseMySQLHeader(line string) {
 			}
 		}
 	}
+}
+
+func (p *mysqlParser) parseServerMeta(lines chan []string) {
+	for {
+		select {
+		case header := <-lines:
+			versions := header[0]
+			net := header[1]
+
+			// Parse server information
+			versionre := regexp.MustCompile(`^([^,]+),\s+Version:\s+([0-9\.]+)([A-Za-z0-9-]+)\s+\((.*)\)\. started`)
+			matches := versionre.FindStringSubmatch(versions)
+
+			if len(matches) != 5 {
+				srv.Binary = "unable to parse line"
+				srv.VersionShort = srv.Binary
+				srv.Version = srv.Binary
+				srv.VersionDescription = srv.Binary
+				srv.Port = 0
+				srv.Socket = srv.Binary
+			}
+
+			srv.Binary = matches[1]
+			srv.VersionShort = matches[2]
+			srv.Version = srv.VersionShort + matches[3]
+			srv.VersionDescription = matches[4]
+			srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
+			srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
+			return
+		}
+	}
+}
+
+func (p *mysqlParser) GetServerMeta() Server {
+	return srv
 }

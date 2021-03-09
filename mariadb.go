@@ -1,6 +1,7 @@
 package slowql
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ const MariaDB Kind = 1
 
 type mariadbParser struct {
 	wl chan Query
+	sm chan Server
 }
 
 func (p *mariadbParser) parseBlocs(rawBlocs chan []string) {
@@ -134,4 +136,39 @@ func (q *Query) parseMariaDBHeader(line string) {
 			}
 		}
 	}
+}
+
+func (p *mariadbParser) parseServerMeta(lines chan []string) {
+	for {
+		select {
+		case header := <-lines:
+			versions := header[0]
+			net := header[1]
+
+			// Parse server information
+			versionre := regexp.MustCompile(`^([^,]+),\s+Version:\s+([0-9\.]+)([A-Za-z0-9-]+)\s+\((.*)\)\. started`)
+			matches := versionre.FindStringSubmatch(versions)
+
+			if len(matches) != 5 {
+				srv.Binary = "unable to parse line"
+				srv.VersionShort = srv.Binary
+				srv.Version = srv.Binary
+				srv.VersionDescription = srv.Binary
+				srv.Port = 0
+				srv.Socket = srv.Binary
+			}
+
+			srv.Binary = matches[1]
+			srv.VersionShort = matches[2]
+			srv.Version = srv.VersionShort + matches[3]
+			srv.VersionDescription = matches[4]
+			srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
+			srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
+			return
+		}
+	}
+}
+
+func (p *mariadbParser) GetServerMeta() Server {
+	return srv
 }

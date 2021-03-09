@@ -38,6 +38,16 @@ type Query struct {
 	Query        string
 }
 
+// Server holds the SQL server informations that are parsed from the header
+type Server struct {
+	Binary             string
+	Port               int
+	Socket             string
+	Version            string
+	VersionShort       string
+	VersionDescription string
+}
+
 // Kind is a database kind
 type Kind int
 
@@ -45,7 +55,9 @@ type Kind int
 type Parser interface {
 	// GetNext returns the next query of the parser
 	GetNext() Query
+	GetServerMeta() Server
 	parseBlocs(rawBlocs chan []string)
+	parseServerMeta(chan []string)
 }
 
 // NewParser returns a new parser depending on the desired kind
@@ -53,32 +65,44 @@ func NewParser(k Kind, r io.Reader) Parser {
 	var p Parser
 
 	rawBlocs := make(chan []string, 1024)
+	servermeta := make(chan []string)
 	waitingList := make(chan Query, 1024)
-	go scan(*bufio.NewScanner(r), rawBlocs)
+	serverInfos := make(chan Server)
+	go scan(*bufio.NewScanner(r), rawBlocs, servermeta)
 
 	switch k {
 	case MySQL, PCX:
 		p = &mysqlParser{
+			sm: serverInfos,
 			wl: waitingList,
 		}
 	case MariaDB:
 		p = &mariadbParser{
+			sm: serverInfos,
 			wl: waitingList,
 		}
 	}
 
+	go p.parseServerMeta(servermeta)
 	go p.parseBlocs(rawBlocs)
+
+	// This is gross but we are sure that some queries will be already parsed at
+	// when the user will call the package's functions
+	time.Sleep(10 * time.Millisecond)
 	return p
 }
 
-func scan(s bufio.Scanner, rawBlocs chan []string) {
+func scan(s bufio.Scanner, rawBlocs, servermeta chan []string) {
 	var bloc []string
 	inHeader, inQuery := false, false
 
-	// Skip the first three lines of the log file
+	// Parse the server informations
+	var lines []string
 	for i := 0; i < 3; i++ {
 		s.Scan()
+		lines = append(lines, s.Text())
 	}
+	servermeta <- lines
 
 	for s.Scan() {
 		line := s.Text()

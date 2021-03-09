@@ -20,6 +20,9 @@ func main() {
 	}
 
 	p := slowql.NewParser(slowql.MySQL, fd)
+	srv := p.GetServerMeta()
+	showServer(srv)
+
 	var count int
 	start := time.Now()
 	for {
@@ -28,7 +31,7 @@ func main() {
 			break
 		}
 
-		// show(q)
+		// showQueries(q)
 
 		count++
 	}
@@ -36,7 +39,7 @@ func main() {
 	fmt.Printf("\nparsed %d queries in %s\n", count, elapsed)
 }
 
-func show(q slowql.Query) {
+func showQueries(q slowql.Query) {
 	fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %f\nLock_time: %f\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
 		q.Time,
 		q.User,
@@ -52,5 +55,16 @@ func show(q slowql.Query) {
 		q.RowsAffected,
 		q.BytesSent,
 		q.Query,
+	)
+}
+
+func showServer(srv slowql.Server) {
+	fmt.Printf("Binary: %s\nVersion short: %s\nVersion: %s\nVersion description: %s\nSocket: %s\nPort: %d\n",
+		srv.Binary,
+		srv.VersionShort,
+		srv.Version,
+		srv.VersionDescription,
+		srv.Socket,
+		srv.Port,
 	)
 }
