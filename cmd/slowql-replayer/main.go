@@ -151,7 +151,7 @@ func (o options) createDB() (*database, error) {
 	case "mariadb":
 		db.kind = slowql.MariaDB
 	case "pxc":
-		db.kind = slowql.PCX
+		db.kind = slowql.PXC
 	default:
 		return nil, errors.New("unknown kind " + o.kind)
 	}

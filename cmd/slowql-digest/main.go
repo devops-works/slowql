@@ -59,7 +59,7 @@ func main() {
 	}
 	logrus.Infof("file has %d lines", lines)
 
-	p := slowql.NewParser(slowql.PCX, opt.file)
+	p := slowql.NewParser(slowql.PXC, opt.file)
 	logrus.Debug("slowql parser created successfully")
 
 	for {

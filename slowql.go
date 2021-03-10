@@ -72,7 +72,7 @@ func NewParser(k Kind, r io.Reader) Parser {
 	go scan(*bufio.NewScanner(r), rawBlocs, servermeta)
 
 	switch k {
-	case MySQL, PCX:
+	case MySQL, PXC:
 		p = &mysqlParser{
 			sm: serverInfos,
 			wl: waitingList,
@@ -84,7 +84,7 @@ func NewParser(k Kind, r io.Reader) Parser {
 		}
 	}
 
-	go p.parseServerMeta(servermeta)
+	p.parseServerMeta(servermeta)
 	go p.parseBlocs(rawBlocs)
 
 	// This is gross but we are sure that some queries will be already parsed at

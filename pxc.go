@@ -1,3 +1,3 @@
 package slowql
 
-const PCX Kind = 2
+const PXC Kind = 2
