@@ -6,7 +6,9 @@ import (
 	"flag"
 	"io"
 	"os"
+	"time"
 
+	"github.com/devops-works/slowql"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,6 +18,29 @@ type options struct {
 	debug    bool
 	quiet    bool
 }
+
+type statistics struct {
+	hash            string
+	fingerprint     string
+	schema          string
+	calls           int
+	cumErrored      int
+	cumKilled       int
+	cumQueryTime    time.Time
+	cumLockTime     time.Time
+	cumRowsSent     int
+	cumRowsExamined int
+	cumBytesSent    int
+	concurrency     float64
+	minTime         time.Time
+	maxTime         time.Time
+	meanTime        time.Time
+	p50Time         time.Time
+	p95Time         time.Time
+	stddevTime      time.Time
+}
+
+type results map[string]statistics
 
 func main() {
 	var opt options
@@ -32,8 +57,20 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	logrus.Infof("file has %d lines", lines)
 
-	logrus.Infof("%d lines found", lines)
+	p := slowql.NewParser(slowql.PCX, opt.file)
+	logrus.Debug("slowql parser created successfully")
+
+	for {
+		q := p.GetNext()
+
+		// If the query is empty, there is no more queries to get
+		if q == (slowql.Query{}) {
+			logrus.Debug("no more queries to get from the slow query log file")
+			break
+		}
+	}
 }
 
 // parse parses the different flags
