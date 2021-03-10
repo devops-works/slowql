@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/devops-works/slowql"
+	"github.com/devops-works/slowql/query"
+	"github.com/devops-works/slowql/server"
 )
 
 func main() {
@@ -27,7 +29,7 @@ func main() {
 	start := time.Now()
 	for {
 		q := p.GetNext()
-		if q == (slowql.Query{}) {
+		if q == (query.Query{}) {
 			break
 		}
 
@@ -39,7 +41,7 @@ func main() {
 	fmt.Printf("\nparsed %d queries in %s\n", count, elapsed)
 }
 
-func showQueries(q slowql.Query) {
+func showQueries(q query.Query) {
 	fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %f\nLock_time: %f\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
 		q.Time,
 		q.User,
@@ -58,7 +60,7 @@ func showQueries(q slowql.Query) {
 	)
 }
 
-func showServer(srv slowql.Server) {
+func showServer(srv server.Server) {
 	fmt.Printf("Binary: %s\nVersion short: %s\nVersion: %s\nVersion description: %s\nSocket: %s\nPort: %d\n",
 		srv.Binary,
 		srv.VersionShort,

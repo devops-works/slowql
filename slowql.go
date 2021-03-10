@@ -7,90 +7,90 @@ package slowql
 import (
 	"bufio"
 	"io"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/devops-works/slowql/database/mysql"
+	// "github.com/devops-works/slowql/parser/pxc"
+
+	"github.com/devops-works/slowql/query"
+	"github.com/devops-works/slowql/server"
 )
-
-var stringInBrackets *regexp.Regexp
-
-func init() {
-	stringInBrackets = regexp.MustCompile(`\[(.*?)\]`)
-}
-
-// Query is a single SQL query and the data associated
-type Query struct {
-	Time         time.Time
-	QueryTime    float64
-	LockTime     float64
-	ID           int
-	RowsSent     int
-	RowsExamined int
-	RowsAffected int
-	LastErrNo    int
-	Killed       int
-	BytesSent    int
-	User         string
-	Host         string
-	Schema       string
-	Query        string
-}
-
-// Server holds the SQL server informations that are parsed from the header
-type Server struct {
-	Binary             string
-	Port               int
-	Socket             string
-	Version            string
-	VersionShort       string
-	VersionDescription string
-}
 
 // Kind is a database kind
 type Kind int
 
-// Parser is the parser interface
-type Parser interface {
-	// GetNext returns the next query of the parser
-	GetNext() Query
-	// GetServerMeta returns informations about the SQL server in usage
-	GetServerMeta() Server
-	parseBlocs(rawBlocs chan []string)
-	parseServerMeta(chan []string)
+const (
+	// Unknown type
+	Unknown Kind = iota
+	// MySQL type
+	MySQL
+	// MariaDB type
+	MariaDB
+	// PXC type
+	PXC
+)
+
+// Database is the parser interface
+type Database interface {
+	// // GetNext returns the next query of the parser
+	// GetNext() Query
+	// // GetServerMeta returns informations about the SQL server in usage
+	// GetServerMeta() Server
+	ParseBlocs(rawBlocs chan []string)
+	ParseServerMeta(chan []string)
+	GetServerMeta() server.Server
+}
+
+// Parser holds a slowql parser
+type Parser struct {
+	db          Database
+	waitingList chan query.Query
+	rawBlocs    chan []string
+	servermeta  chan []string
 }
 
 // NewParser returns a new parser depending on the desired kind
 func NewParser(k Kind, r io.Reader) Parser {
 	var p Parser
 
-	rawBlocs := make(chan []string, 1024)
-	servermeta := make(chan []string)
-	waitingList := make(chan Query, 1024)
-	serverInfos := make(chan Server)
-	go scan(*bufio.NewScanner(r), rawBlocs, servermeta)
+	p.rawBlocs = make(chan []string, 1024)
+	p.servermeta = make(chan []string)
+	p.waitingList = make(chan query.Query, 1024)
+
+	go scan(*bufio.NewScanner(r), p.rawBlocs, p.servermeta)
 
 	switch k {
 	case MySQL, PXC:
-		p = &mysqlParser{
-			sm: serverInfos,
-			wl: waitingList,
-		}
-	case MariaDB:
-		p = &mariadbParser{
-			sm: serverInfos,
-			wl: waitingList,
-		}
+		p.db = mysql.New(p.waitingList)
 	}
 
-	p.parseServerMeta(servermeta)
-	go p.parseBlocs(rawBlocs)
+	p.db.ParseServerMeta(p.servermeta)
+	go p.db.ParseBlocs(p.rawBlocs)
 
 	// This is gross but we are sure that some queries will be already parsed at
 	// when the user will call the package's functions
 	time.Sleep(10 * time.Millisecond)
 	return p
+}
+
+// GetNext returns the next query in line
+func (p *Parser) GetNext() query.Query {
+	var q query.Query
+	select {
+	case q = <-p.waitingList:
+		return q
+	case <-time.After(2 * time.Second):
+		close(p.waitingList)
+	}
+	return q
+}
+
+// GetServerMeta returns server meta information
+func (p *Parser) GetServerMeta() server.Server {
+	return p.db.GetServerMeta()
 }
 
 func scan(s bufio.Scanner, rawBlocs, servermeta chan []string) {

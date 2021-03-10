@@ -1,4 +1,4 @@
-package slowql
+package mariadb
 
 import (
 	"regexp"
@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/devops-works/slowql/query"
+	"github.com/devops-works/slowql/server"
 )
 
-// MariaDB is the MariaDB kind
-const MariaDB Kind = 1
-
-type mariadbParser struct {
-	wl chan Query
-	sm chan Server
+// Database holds parser structure
+type Database struct {
+	WaitingList chan query.Query
+	ServerMeta  chan server.Server
 }
 
-func (p *mariadbParser) parseBlocs(rawBlocs chan []string) {
+func (p *Parser) parseBlocs(rawBlocs chan []string) {
 	for {
 		select {
 		case bloc := <-rawBlocs:
@@ -35,7 +36,7 @@ func (p *mariadbParser) parseBlocs(rawBlocs chan []string) {
 	}
 }
 
-func (p *mariadbParser) GetNext() Query {
+func (p *Parser) GetNext() Query {
 	var q Query
 	select {
 	case q = <-p.wl:
@@ -138,7 +139,7 @@ func (q *Query) parseMariaDBHeader(line string) {
 	}
 }
 
-func (p *mariadbParser) parseServerMeta(lines chan []string) {
+func (p *Parser) parseServerMeta(lines chan []string) {
 	for {
 		select {
 		case header := <-lines:
@@ -169,6 +170,6 @@ func (p *mariadbParser) parseServerMeta(lines chan []string) {
 	}
 }
 
-func (p *mariadbParser) GetServerMeta() Server {
+func (p *Parser) GetServerMeta() Server {
 	return srv
 }
