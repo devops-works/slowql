@@ -10,13 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
+	"github.com/devops-works/slowql/database/mariadb"
 	"github.com/devops-works/slowql/database/mysql"
-	// "github.com/devops-works/slowql/parser/pxc"
-
 	"github.com/devops-works/slowql/query"
 	"github.com/devops-works/slowql/server"
+	"github.com/sirupsen/logrus"
 )
 
 // Kind is a database kind
@@ -65,6 +63,8 @@ func NewParser(k Kind, r io.Reader) Parser {
 	switch k {
 	case MySQL, PXC:
 		p.db = mysql.New(p.waitingList)
+	case MariaDB:
+		p.db = mariadb.New(p.waitingList)
 	}
 
 	p.db.ParseServerMeta(p.servermeta)

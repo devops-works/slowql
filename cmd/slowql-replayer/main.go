@@ -16,6 +16,7 @@ import (
 	"github.com/briandowns/spinner"
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/cmd/slowql-replayer/pprof"
+	"github.com/devops-works/slowql/query"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
@@ -223,7 +224,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 	var previousDate time.Time
 	for {
 		q := p.GetNext()
-		if q == (slowql.Query{}) {
+		if q == (query.Query{}) {
 			s.Stop()
 			break
 		}

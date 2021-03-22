@@ -6,10 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/devops-works/slowql/query"
 	"github.com/devops-works/slowql/server"
+	"github.com/sirupsen/logrus"
 )
 
 // Database holds parser structure
@@ -31,7 +30,7 @@ func New(qc chan query.Query) *Database {
 }
 
 // ParseBlocs parses query blocks
-func (p *Database) ParseBlocs(rawBlocs chan []string) {
+func (db *Database) ParseBlocs(rawBlocs chan []string) {
 	for {
 		select {
 		case bloc := <-rawBlocs:
@@ -39,17 +38,17 @@ func (p *Database) ParseBlocs(rawBlocs chan []string) {
 
 			for _, line := range bloc {
 				if line[0] == '#' {
-					p.parseMySQLHeader(line, &q)
+					db.parseMySQLHeader(line, &q)
 				} else {
 					q.Query = q.Query + line
 				}
 			}
-			p.WaitingList <- q
+			db.WaitingList <- q
 		}
 	}
 }
 
-func (p *Database) parseMySQLHeader(line string, q *query.Query) {
+func (db *Database) parseMySQLHeader(line string, q *query.Query) {
 	var err error
 	parts := strings.Split(line, " ")
 
@@ -111,7 +110,7 @@ func (p *Database) parseMySQLHeader(line string, q *query.Query) {
 			}
 
 		} else if strings.Contains(part, "user@host:") {
-			items := p.stringInBrackets.FindAllString(line, -1)
+			items := db.stringInBrackets.FindAllString(line, -1)
 			// We remove first and last bytes of the strings because they are
 			// square brackets
 			q.User = items[0][1 : len(items[0])-1]

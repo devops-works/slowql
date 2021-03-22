@@ -14,40 +14,41 @@ import (
 
 // Database holds parser structure
 type Database struct {
-	WaitingList chan query.Query
-	ServerMeta  chan server.Server
+	WaitingList      chan query.Query
+	ServerMeta       chan server.Server
+	stringInBrackets *regexp.Regexp
+	srv              server.Server
 }
 
-func (p *Parser) parseBlocs(rawBlocs chan []string) {
+// New instance of parser
+func New(qc chan query.Query) *Database {
+	p := Database{
+		WaitingList:      qc,
+		stringInBrackets: regexp.MustCompile(`\[(.*?)\]`),
+	}
+
+	return &p
+}
+
+func (db *Database) ParseBlocs(rawBlocs chan []string) {
 	for {
 		select {
 		case bloc := <-rawBlocs:
-			var q Query
+			var q query.Query
 
 			for _, line := range bloc {
-				if strings.HasPrefix(line, "#") {
-					q.parseMariaDBHeader(line)
+				if line[0] == '#' {
+					db.parseMariaDBHeader(line, &q)
 				} else {
 					q.Query = q.Query + line
 				}
 			}
-			p.wl <- q
+			db.WaitingList <- q
 		}
 	}
 }
 
-func (p *Parser) GetNext() Query {
-	var q Query
-	select {
-	case q = <-p.wl:
-		return q
-	case <-time.After(2 * time.Second):
-		close(p.wl)
-	}
-	return q
-}
-
-func (q *Query) parseMariaDBHeader(line string) {
+func (db *Database) parseMariaDBHeader(line string, q *query.Query) {
 	var err error
 	parts := strings.Split(line, " ")
 
@@ -109,7 +110,7 @@ func (q *Query) parseMariaDBHeader(line string) {
 			}
 
 		} else if strings.Contains(part, "user@host:") {
-			items := stringInBrackets.FindAllString(line, -1)
+			items := db.stringInBrackets.FindAllString(line, -1)
 			// We remove first and last bytes of the strings because they are
 			// square brackets
 			q.User = items[0][1 : len(items[0])-1]
@@ -139,7 +140,7 @@ func (q *Query) parseMariaDBHeader(line string) {
 	}
 }
 
-func (p *Parser) parseServerMeta(lines chan []string) {
+func (p *Database) ParseServerMeta(lines chan []string) {
 	for {
 		select {
 		case header := <-lines:
@@ -151,25 +152,25 @@ func (p *Parser) parseServerMeta(lines chan []string) {
 			matches := versionre.FindStringSubmatch(versions)
 
 			if len(matches) != 5 {
-				srv.Binary = "unable to parse line"
-				srv.VersionShort = srv.Binary
-				srv.Version = srv.Binary
-				srv.VersionDescription = srv.Binary
-				srv.Port = 0
-				srv.Socket = srv.Binary
+				p.srv.Binary = "unable to parse line"
+				p.srv.VersionShort = p.srv.Binary
+				p.srv.Version = p.srv.Binary
+				p.srv.VersionDescription = p.srv.Binary
+				p.srv.Port = 0
+				p.srv.Socket = p.srv.Binary
 			}
 
-			srv.Binary = matches[1]
-			srv.VersionShort = matches[2]
-			srv.Version = srv.VersionShort + matches[3]
-			srv.VersionDescription = matches[4]
-			srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
-			srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
+			p.srv.Binary = matches[1]
+			p.srv.VersionShort = matches[2]
+			p.srv.Version = p.srv.VersionShort + matches[3]
+			p.srv.VersionDescription = matches[4]
+			p.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
+			p.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
 			return
 		}
 	}
 }
 
-func (p *Parser) GetServerMeta() Server {
-	return srv
+func (d *Database) GetServerMeta() server.Server {
+	return d.srv
 }

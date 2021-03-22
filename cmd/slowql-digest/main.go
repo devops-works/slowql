@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/devops-works/slowql"
+	"github.com/devops-works/slowql/query"
 	"github.com/sirupsen/logrus"
 )
 
@@ -66,7 +67,7 @@ func main() {
 		q := p.GetNext()
 
 		// If the query is empty, there is no more queries to get
-		if q == (slowql.Query{}) {
+		if q == (query.Query{}) {
 			logrus.Debug("no more queries to get from the slow query log file")
 			break
 		}
