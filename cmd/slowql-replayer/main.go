@@ -19,7 +19,7 @@ import (
 	"github.com/devops-works/slowql/query"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -35,14 +35,14 @@ type options struct {
 	pprof    string
 	workers  int
 	usePass  bool
-	dryRun   bool
+	noDryRun bool
 }
 
 type database struct {
 	kind       slowql.Kind
 	datasource string
 	drv        *sql.DB
-	dryRun     bool
+	noDryRun   bool
 	logger     *logrus.Logger
 	wrks       int
 }
@@ -67,7 +67,7 @@ func main() {
 	flag.StringVar(&opt.pprof, "pprof", "", "pprof server address")
 	flag.IntVar(&opt.workers, "w", 100, "Number of maximum simultaneous connections to database")
 	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
-	flag.BoolVar(&opt.dryRun, "dry", false, "Replay the requests but don't write in the database")
+	flag.BoolVar(&opt.noDryRun, "no-dry-run", false, "Replay the requests on the database for real")
 	flag.Parse()
 
 	if err := opt.parse(); err != nil {
@@ -97,18 +97,27 @@ func main() {
 		db.logger.Infof("pprof started on 'http://%s'", pprofServer.Addr)
 	}
 
-	r, err := db.replay(f)
-	if err != nil {
-		logrus.Fatalf("cannot replay %s: %s", opt.kind, err)
-	}
+	var r results
 
-	if opt.dryRun {
-		r.dryRun = "true"
+	db.logger.Infof("%d workers will be created", opt.workers)
+	if opt.noDryRun {
+		db.logger.Warn("no-dry-run flag found, replaying for real")
+		r, err = db.replay(f)
 	} else {
-		r.dryRun = "false"
+		db.logger.Warn("replaying with dry run")
+		r, err = db.dryRun(f)
+	}
+	if err != nil {
+		db.logger.Fatalf("cannot replay %s: %s", opt.kind, err)
 	}
 
+	if opt.noDryRun {
+		r.dryRun = "no"
+	} else {
+		r.dryRun = "yes"
+	}
 	r.kind = opt.kind
+
 	r.show()
 }
 
@@ -129,7 +138,7 @@ func (o *options) parse() error {
 
 	if o.usePass {
 		fmt.Printf("Password: ")
-		bytes, err := terminal.ReadPassword(syscall.Stdin)
+		bytes, err := term.ReadPassword(syscall.Stdin)
 		if err != nil {
 			return err
 		}
@@ -162,7 +171,7 @@ func (o options) createDB() (*database, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.dryRun = o.dryRun
+	db.noDryRun = o.noDryRun
 
 	if err = db.drv.Ping(); err != nil {
 		return nil, err
@@ -194,6 +203,75 @@ func (o options) createDB() (*database, error) {
 	db.logger.Debugf("workers number set to %s", db.wrks)
 
 	return &db, nil
+}
+
+func (db *database) dryRun(f io.Reader) (results, error) {
+	var r results
+
+	p := slowql.NewParser(db.kind, f)
+
+	queries := make(chan string, 16384)
+	errors := make(chan error, 16384)
+	var wg sync.WaitGroup
+
+	db.logger.Debug("starting workers pool")
+	for i := 0; i < db.wrks; i++ {
+		wg.Add(1)
+		go db.worker(queries, errors, &wg)
+	}
+
+	db.logger.Debug("starting errors collector")
+	go r.errorsCollector(errors)
+
+	firstPass := true
+	var previousDate, now time.Time
+	var sleeping time.Duration
+
+	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
+	s := newSpinner(34)
+	s.Start()
+
+	start := time.Now()
+	for {
+		q := p.GetNext()
+		if q == (query.Query{}) {
+			s.Stop()
+			break
+		}
+		db.logger.Tracef("query: %s", q.Query)
+
+		r.queries++
+		s.Suffix = " queries replayed: " + strconv.Itoa(r.queries)
+
+		// We need a reference time
+		if firstPass {
+			firstPass = false
+			previousDate = q.Time
+			continue
+		}
+
+		now = q.Time
+		sleeping = now.Sub(previousDate)
+		db.logger.Tracef("next sleeping time: %s", sleeping)
+		time.Sleep(sleeping)
+
+		// For MariaDB, when there is multiple queries in a short amount of
+		// time, the Time field is not repeated, so we do not have to update
+		// the previous date.
+		if now != (time.Time{}) {
+			previousDate = now
+		}
+	}
+	close(queries)
+	db.logger.Debug("closed queries channel")
+
+	wg.Wait()
+	close(errors)
+	db.logger.Debug("closed errors channel")
+
+	r.duration = time.Since(start)
+	db.logger.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
+	return r, nil
 }
 
 // replay replays the queries from a slow query log file to a database
@@ -233,10 +311,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 		r.queries++
 		s.Suffix = " queries replayed: " + strconv.Itoa(r.queries)
 
-		if !db.dryRun {
-			// Feed the workers with the query
-			queries <- q.Query
-		}
+		queries <- q.Query
 
 		// We need a reference time
 		if firstPass {

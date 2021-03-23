@@ -54,9 +54,9 @@ type Parser struct {
 func NewParser(k Kind, r io.Reader) Parser {
 	var p Parser
 
-	p.rawBlocs = make(chan []string, 1024)
+	p.rawBlocs = make(chan []string, 4096)
 	p.servermeta = make(chan []string)
-	p.waitingList = make(chan query.Query, 1024)
+	p.waitingList = make(chan query.Query, 4096)
 
 	go scan(*bufio.NewScanner(r), p.rawBlocs, p.servermeta)
 
