@@ -159,14 +159,15 @@ func (p *Database) ParseServerMeta(lines chan []string) {
 				p.srv.VersionDescription = p.srv.Binary
 				p.srv.Port = 0
 				p.srv.Socket = p.srv.Binary
+			} else {
+				p.srv.Binary = matches[1]
+				p.srv.VersionShort = matches[2]
+				p.srv.Version = p.srv.VersionShort + matches[3]
+				p.srv.VersionDescription = matches[4]
+				p.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
+				p.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
 			}
 
-			p.srv.Binary = matches[1]
-			p.srv.VersionShort = matches[2]
-			p.srv.Version = p.srv.VersionShort + matches[3]
-			p.srv.VersionDescription = matches[4]
-			p.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
-			p.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
 			return
 		}
 	}

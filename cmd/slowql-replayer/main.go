@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"errors"
 	"flag"
@@ -17,7 +18,7 @@ import (
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/cmd/slowql-replayer/pprof"
 	"github.com/devops-works/slowql/query"
-	"github.com/olekukonko/tablewriter"
+	. "github.com/logrusorgru/aurora"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 
@@ -48,11 +49,12 @@ type database struct {
 }
 
 type results struct {
-	kind     string
-	dryRun   string
-	queries  int
-	errors   int
-	duration time.Duration
+	kind         string
+	dryRun       bool
+	queries      int
+	errors       int
+	duration     time.Duration
+	realDuration time.Duration
 }
 
 func main() {
@@ -99,6 +101,12 @@ func main() {
 
 	var r results
 
+	db.logger.Info("getting real execution time")
+	realExec, err := getRealTime(opt.kind, opt.file)
+	if err != nil {
+		db.logger.Fatalf("cannot get real duration from log file: %s", err)
+	}
+
 	db.logger.Infof("%d workers will be created", opt.workers)
 	if opt.noDryRun {
 		db.logger.Warn("no-dry-run flag found, replaying for real")
@@ -111,14 +119,10 @@ func main() {
 		db.logger.Fatalf("cannot replay %s: %s", opt.kind, err)
 	}
 
-	if opt.noDryRun {
-		r.dryRun = "no"
-	} else {
-		r.dryRun = "yes"
-	}
+	r.dryRun = !opt.noDryRun
 	r.kind = opt.kind
-
-	r.show()
+	r.realDuration = realExec
+	r.show(opt)
 }
 
 // parse ensures that no options has been omitted. It also asks for a password
@@ -344,37 +348,65 @@ func (db *database) replay(f io.Reader) (results, error) {
 	return r, nil
 }
 
-func (r results) show() {
-	data := []string{
-		r.kind,
-		r.dryRun,
-		strconv.Itoa(r.queries),
-		strconv.Itoa(r.errors),
-		r.duration.String(),
+func (r results) show(o options) {
+	prcSuccess := (float64(r.queries) - float64(r.errors)) * 100.0 / float64(r.queries)
+	durationDelta := fmt.Sprint(r.duration - r.realDuration)
+	if durationDelta == r.duration.String() {
+		durationDelta = "n/a"
+	} else if r.duration > r.realDuration {
+		durationDelta = "replayer took " + durationDelta + " more"
+	} else if r.duration < r.realDuration {
+		durationDelta = "replayer took " + durationDelta + " less"
 	}
-	t := newTable()
-	t.Append(data)
-	t.Render()
+
+	fmt.Printf(`
+=-= Results =-=
+
+Replay duration:  %s
+Log file:         %s
+Dry run:          %v
+Workers:          %d
+
+Database
+  ├─ kind:      %s
+  ├─ user:      %s
+  ├─ use pass:  %v
+  └─ address:   %s
+
+Statistics
+  ├─ Queries:                %d
+  ├─ Errors:                 %d
+  ├─ Queries success rate:   %.4f%%
+  └─ Duration difference:    %s
+`,
+		Bold(r.duration),
+		Bold(o.file),
+		Bold(r.dryRun),
+		Bold(o.workers),
+		// database
+		Bold(r.kind),
+		Bold(o.user),
+		Bold(o.usePass),
+		Bold(o.host),
+		// statistics
+		Bold(r.queries),
+		Bold(r.errors),
+		Bold(prcSuccess),
+		Bold(durationDelta),
+	)
 }
 
 func newSpinner(t int) *spinner.Spinner {
 	return spinner.New(spinner.CharSets[t], 100*time.Millisecond)
 }
 
-func newTable() *tablewriter.Table {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetAlignment(tablewriter.ALIGN_CENTER)
-	table.SetHeader([]string{"DB", "dry run", "Queries", "Errors", "Duration"})
-	return table
-}
-
 func (db database) worker(queries chan string, errors chan error, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case q, ok := <-queries:
 			if !ok {
 				db.logger.Trace("channel closed, worker exiting")
-				wg.Done()
 				return
 			}
 			rows, err := db.drv.Query(q)
@@ -398,5 +430,76 @@ func (r *results) errorsCollector(errors chan error) {
 			}
 			r.errors++
 		}
+	}
+}
+
+// getRealTime returns the real duration of the slow query log based on the Time
+// tags in the headers
+func getRealTime(k, file string) (time.Duration, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return time.Duration(0), err
+	}
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	var start, end string
+
+	switch k {
+	case "mysql", "pxc":
+		// Get the first Time
+		for s.Scan() {
+			if strings.Contains(s.Text(), "Time:") {
+				parts := strings.Split(s.Text(), " ")
+				start = parts[2]
+				break
+			}
+		}
+
+		// Get the last time
+		for s.Scan() {
+			if strings.Contains(s.Text(), "Time:") {
+				parts := strings.Split(s.Text(), " ")
+				end = parts[2]
+			}
+		}
+
+		timeStart, err := time.Parse("2006-01-02T15:04:05.999999Z", start)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		timeEnd, err := time.Parse("2006-01-02T15:04:05.999999Z", end)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		return timeEnd.Sub(timeStart), nil
+	case "mariadb":
+		// Get the first Time
+		for s.Scan() {
+			if strings.Contains(s.Text(), "Time:") {
+				parts := strings.Split(s.Text(), " ")
+				start = parts[2] + " " + parts[3]
+				break
+			}
+		}
+		// Get the last time
+		for s.Scan() {
+			if strings.Contains(s.Text(), "Time:") {
+				parts := strings.Split(s.Text(), " ")
+				end = parts[2] + " " + parts[3]
+			}
+		}
+
+		timeStart, err := time.Parse("060102 15:04:05", start)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		timeEnd, err := time.Parse("060102 15:04:05", end)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		return timeEnd.Sub(timeStart), nil
+	default:
+		return time.Duration(0), nil
 	}
 }
