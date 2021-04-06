@@ -57,6 +57,11 @@ type results struct {
 	realDuration time.Duration
 }
 
+type job struct {
+	idle  time.Duration
+	query string
+}
+
 func main() {
 	var opt options
 
@@ -109,7 +114,7 @@ func main() {
 
 	db.logger.Infof("%d workers will be created", opt.workers)
 	if opt.noDryRun {
-		db.logger.Warn("no-dry-run flag found, replaying for real")
+		db.logger.Warn("no-dry-run flag found, queries will be executed")
 		r, err = db.replay(f)
 	} else {
 		db.logger.Warn("replaying with dry run")
@@ -138,6 +143,8 @@ func (o *options) parse() error {
 		return errors.New("no database kind provided")
 	} else if o.database == "" {
 		return errors.New("no database provided")
+	} else if o.workers <= 0 {
+		return errors.New("cannot create negative number or zero workers")
 	}
 
 	if o.usePass {
@@ -204,7 +211,7 @@ func (o options) createDB() (*database, error) {
 	db.logger.Debugf("log level set to %s", db.logger.GetLevel())
 
 	db.wrks = o.workers
-	db.logger.Debugf("workers number set to %s", db.wrks)
+	db.logger.Debugf("workers number set to %d", db.wrks)
 
 	return &db, nil
 }
@@ -219,11 +226,13 @@ func (db *database) dryRun(f io.Reader) (results, error) {
 	var wg sync.WaitGroup
 
 	db.logger.Debug("starting workers pool")
+	var workersCounter int
 	for i := 0; i < db.wrks; i++ {
 		wg.Add(1)
+		workersCounter++
 		go db.worker(queries, errors, &wg)
 	}
-
+	db.logger.Debugf("created %d workers successfully", workersCounter)
 	db.logger.Debug("starting errors collector")
 	go r.errorsCollector(errors)
 
@@ -289,21 +298,24 @@ func (db *database) replay(f io.Reader) (results, error) {
 	var wg sync.WaitGroup
 
 	db.logger.Debug("starting workers pool")
+	var workersCounter int
 	for i := 0; i < db.wrks; i++ {
 		wg.Add(1)
+		workersCounter++
 		go db.worker(queries, errors, &wg)
 	}
-
+	db.logger.Debugf("created %d workers successfully", workersCounter)
 	db.logger.Debug("starting errors collector")
 	go r.errorsCollector(errors)
 
-	start := time.Now()
 	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	s := newSpinner(34)
 	s.Start()
 
 	firstPass := true
 	var previousDate time.Time
+
+	start := time.Now()
 	for {
 		q := p.GetNext()
 		if q == (query.Query{}) {
@@ -349,7 +361,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 }
 
 func (r results) show(o options) {
-	prcSuccess := (float64(r.queries) - float64(r.errors)) * 100.0 / float64(r.queries)
+	prcSuccess := fmt.Sprintf("%.4f%%", (float64(r.queries)-float64(r.errors))*100.0/float64(r.queries))
 	durationDelta := fmt.Sprint(r.duration - r.realDuration)
 	if durationDelta == r.duration.String() {
 		durationDelta = "n/a"
@@ -359,6 +371,14 @@ func (r results) show(o options) {
 		durationDelta = "replayer took " + durationDelta + " less"
 	}
 
+	var prcSpeedStr string
+	prcSpeed := float64(r.duration) * 100.0 / float64(r.realDuration)
+	if prcSpeed > 100.0 {
+		prcSpeed = prcSpeed - 100.0
+		prcSpeedStr = fmt.Sprintf("-%.4f%%", prcSpeed)
+	} else {
+		prcSpeedStr = fmt.Sprintf("+%.4f%%", prcSpeed)
+	}
 	fmt.Printf(`
 =-= Results =-=
 
@@ -376,8 +396,11 @@ Database
 Statistics
   ├─ Queries:                %d
   ├─ Errors:                 %d
-  ├─ Queries success rate:   %.4f%%
-  └─ Duration difference:    %s
+  ├─ Queries success rate:   %s
+  ├─ Duration difference:    %s
+  └─ Replayer speed:         %s
+
+%s: the replayer may take a little more time due to the numerous conditions that are verified during the replay.
 `,
 		Bold(r.duration),
 		Bold(o.file),
@@ -393,6 +416,9 @@ Statistics
 		Bold(r.errors),
 		Bold(prcSuccess),
 		Bold(durationDelta),
+		Bold(prcSpeedStr),
+		// footnote
+		Bold(Yellow("Note")),
 	)
 }
 
