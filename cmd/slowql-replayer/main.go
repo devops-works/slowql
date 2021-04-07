@@ -104,8 +104,6 @@ func main() {
 		db.logger.Infof("pprof started on 'http://%s'", pprofServer.Addr)
 	}
 
-	var r results
-
 	db.logger.Info("getting real execution time")
 	realExec, err := getRealTime(opt.kind, opt.file)
 	if err != nil {
@@ -115,11 +113,11 @@ func main() {
 	db.logger.Infof("%d workers will be created", opt.workers)
 	if opt.noDryRun {
 		db.logger.Warn("no-dry-run flag found, queries will be executed")
-		r, err = db.replay(f)
 	} else {
 		db.logger.Warn("replaying with dry run")
-		// r, err = db.dryRun(f)
 	}
+
+	r, err := db.replay(f)
 	if err != nil {
 		db.logger.Fatalf("cannot replay %s: %s", opt.kind, err)
 	}
@@ -225,77 +223,6 @@ func (o options) createDB() (*database, error) {
 	return &db, nil
 }
 
-// func (db *database) dryRun(f io.Reader) (results, error) {
-// 	var r results
-
-// 	p := slowql.NewParser(db.kind, f)
-
-// 	queries := make(chan string, 16384)
-// 	errors := make(chan error, 16384)
-// 	var wg sync.WaitGroup
-
-// 	db.logger.Debug("starting workers pool")
-// 	var workersCounter int
-// 	for i := 0; i < db.wrks; i++ {
-// 		wg.Add(1)
-// 		workersCounter++
-// 		go db.worker(queries, errors, &wg)
-// 	}
-// 	db.logger.Debugf("created %d workers successfully", workersCounter)
-// 	db.logger.Debug("starting errors collector")
-// 	go r.errorsCollector(errors)
-
-// 	firstPass := true
-// 	var previousDate, now time.Time
-// 	var sleeping time.Duration
-
-// 	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
-// 	s := newSpinner(34)
-// 	s.Start()
-
-// 	start := time.Now()
-// 	for {
-// 		q := p.GetNext()
-// 		if q == (query.Query{}) {
-// 			s.Stop()
-// 			break
-// 		}
-// 		db.logger.Tracef("query: %s", q.Query)
-
-// 		r.queries++
-// 		s.Suffix = " queries replayed: " + strconv.Itoa(r.queries)
-
-// 		// We need a reference time
-// 		if firstPass {
-// 			firstPass = false
-// 			previousDate = q.Time
-// 			continue
-// 		}
-
-// 		now = q.Time
-// 		sleeping = now.Sub(previousDate)
-// 		db.logger.Tracef("next sleeping time: %s", sleeping)
-// 		time.Sleep(sleeping)
-
-// 		// For MariaDB, when there is multiple queries in a short amount of
-// 		// time, the Time field is not repeated, so we do not have to update
-// 		// the previous date.
-// 		if now != (time.Time{}) {
-// 			previousDate = now
-// 		}
-// 	}
-// 	close(queries)
-// 	db.logger.Debug("closed queries channel")
-
-// 	wg.Wait()
-// 	close(errors)
-// 	db.logger.Debug("closed errors channel")
-
-// 	r.duration = time.Since(start)
-// 	db.logger.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
-// 	return r, nil
-// }
-
 // replay replays the queries from a slow query log file to a database
 func (db *database) replay(f io.Reader) (results, error) {
 	var r results
@@ -311,7 +238,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 	for i := 0; i < db.wrks; i++ {
 		wg.Add(1)
 		workersCounter++
-		go db.worker(jobs, errors, &wg)
+		go db.worker(jobs, errors, db.noDryRun, &wg)
 	}
 	db.logger.Debugf("created %d workers successfully", workersCounter)
 	db.logger.Debug("starting errors collector")
@@ -435,7 +362,7 @@ func newSpinner(t int) *spinner.Spinner {
 	return spinner.New(spinner.CharSets[t], 100*time.Millisecond)
 }
 
-func (db database) worker(jobs chan job, errors chan error, wg *sync.WaitGroup) {
+func (db database) worker(jobs chan job, errors chan error, noDryRun bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		j, ok := <-jobs
@@ -447,13 +374,15 @@ func (db database) worker(jobs chan job, errors chan error, wg *sync.WaitGroup) 
 		if sleep > 0 {
 			time.Sleep(sleep)
 		}
-		rows, err := db.drv.Query(j.query)
-		if err != nil {
-			errors <- err
-			db.logger.Debugf("failed to execute query:\n%s\nerror: %s", j.query, err)
-		}
-		if rows != nil {
-			rows.Close()
+		if noDryRun {
+			rows, err := db.drv.Query(j.query)
+			if err != nil {
+				errors <- err
+				db.logger.Debugf("failed to execute query:\n%s\nerror: %s", j.query, err)
+			}
+			if rows != nil {
+				rows.Close()
+			}
 		}
 	}
 }
