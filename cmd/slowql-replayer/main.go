@@ -35,17 +35,19 @@ type options struct {
 	loglvl   string
 	pprof    string
 	workers  int
+	factor   float64
 	usePass  bool
 	noDryRun bool
 }
 
 type database struct {
-	kind       slowql.Kind
-	datasource string
-	drv        *sql.DB
-	noDryRun   bool
-	logger     *logrus.Logger
-	wrks       int
+	kind        slowql.Kind
+	datasource  string
+	drv         *sql.DB
+	noDryRun    bool
+	logger      *logrus.Logger
+	wrks        int
+	speedFactor float64
 }
 
 type results struct {
@@ -73,13 +75,17 @@ func main() {
 	flag.StringVar(&opt.loglvl, "l", "info", "Logging level")
 	flag.StringVar(&opt.pprof, "pprof", "", "pprof server address")
 	flag.IntVar(&opt.workers, "w", 100, "Number of maximum simultaneous connections to database")
+	flag.Float64Var(&opt.factor, "x", 1, "Speed factor")
 	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
 	flag.BoolVar(&opt.noDryRun, "no-dry-run", false, "Replay the requests on the database for real")
 	flag.Parse()
 
-	if err := opt.parse(); err != nil {
+	if errs := opt.parse(); len(errs) > 0 {
 		flag.Usage()
-		logrus.Fatalf("cannot parse options: %s", err)
+		for _, e := range errs {
+			logrus.Warn(e)
+		}
+		logrus.Fatal("cannot parse options")
 	}
 
 	db, err := opt.createDB()
@@ -117,6 +123,10 @@ func main() {
 		db.logger.Warn("replaying with dry run")
 	}
 
+	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
+	db.logger.Infof("estimated time of end: %s", time.Now().
+		Add(realExec/time.Duration(db.speedFactor)).Format("Mon Jan 2 15:04:05"))
+
 	r, err := db.replay(f)
 	if err != nil {
 		db.logger.Fatalf("cannot replay %s: %s", opt.kind, err)
@@ -130,32 +140,33 @@ func main() {
 
 // parse ensures that no options has been omitted. It also asks for a password
 // if it is required
-func (o *options) parse() error {
+func (o *options) parse() []error {
+	var errs []error
 	if o.user == "" {
-		return errors.New("no user provided")
+		errs = append(errs, errors.New("no user provided"))
 	} else if o.host == "" {
-		return errors.New("no host provided")
+		errs = append(errs, errors.New("no host provided"))
 	} else if o.file == "" {
-		return errors.New("no slow query log file provided")
+		errs = append(errs, errors.New("no slow query log file provided"))
 	} else if o.kind == "" {
-		return errors.New("no database kind provided")
+		errs = append(errs, errors.New("no database kind provided"))
 	} else if o.database == "" {
-		return errors.New("no database provided")
+		errs = append(errs, errors.New("no database provided"))
 	} else if o.workers <= 0 {
-		return errors.New("cannot create negative number or zero workers")
+		errs = append(errs, errors.New("cannot create negative number or zero workers"))
 	}
 
 	if o.usePass {
 		fmt.Printf("Password: ")
 		bytes, err := term.ReadPassword(syscall.Stdin)
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 		fmt.Println()
 
 		o.pass = string(bytes)
 	}
-	return nil
+	return errs
 }
 
 // createDB creates a database object according to what has been specified in
@@ -211,6 +222,9 @@ func (o options) createDB() (*database, error) {
 	db.wrks = o.workers
 	db.logger.Debugf("workers number set to %d", db.wrks)
 
+	db.speedFactor = o.factor
+	db.logger.Debugf("speed factor: %f", db.speedFactor)
+
 	maxOpen := db.wrks * 2
 	maxIdle := db.wrks / 4
 
@@ -231,6 +245,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 	jobs := make(chan job, 65535)
 	errors := make(chan error, 16384)
+	queries := make(chan int, 65535)
 	var wg sync.WaitGroup
 
 	db.logger.Debug("starting workers pool")
@@ -238,15 +253,15 @@ func (db *database) replay(f io.Reader) (results, error) {
 	for i := 0; i < db.wrks; i++ {
 		wg.Add(1)
 		workersCounter++
-		go db.worker(jobs, errors, db.noDryRun, &wg)
+		go db.worker(jobs, errors, queries, db.noDryRun, &wg)
 	}
 	db.logger.Debugf("created %d workers successfully", workersCounter)
 	db.logger.Debug("starting errors collector")
 	go r.errorsCollector(errors)
 
-	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	s := newSpinner(34)
 	s.Start()
+	go updateSpinner(s, queries)
 
 	firstPass := true
 
@@ -256,13 +271,11 @@ func (db *database) replay(f io.Reader) (results, error) {
 	for {
 		q := p.GetNext()
 		if q == (query.Query{}) {
-			s.Stop()
 			break
 		}
 		db.logger.Tracef("query: %s", q.Query)
 
 		r.queries++
-		s.Suffix = " queries replayed: " + strconv.Itoa(r.queries)
 
 		// We need a reference time
 		if firstPass {
@@ -272,24 +285,29 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 		var j job
 		delta := q.Time.Sub(reference)
-		j.idle = start.Add(delta)
+		diviser := time.Duration(db.speedFactor)
+		if diviser >= 1.0 {
+			j.idle = start.Add(delta / diviser)
+		} else if diviser > 0.0 {
+			j.idle = start.Add(delta * (1 / diviser))
+		} else {
+			j.idle = start.Add(delta)
+		}
 		j.query = q.Query
 		db.logger.Tracef("next sleeping time: %s", j.idle)
-		// time.Sleep(sleeping)
+
 		jobs <- j
-		// For MariaDB, when there is multiple queries in a short amount of
-		// time, the Time field is not repeated, so we do not have to update
-		// the previous date.
-		// if now != (time.Time{}) {
-		// 	previousDate = now
-		// }
 	}
 	close(jobs)
-	db.logger.Debug("closed queries channel")
+	db.logger.Debug("closed jobs channel")
 
 	wg.Wait()
 	close(errors)
 	db.logger.Debug("closed errors channel")
+
+	s.Stop()
+	close(queries)
+	db.logger.Debug("spinned stopped and update channel closed")
 
 	r.duration = time.Since(start)
 	db.logger.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
@@ -333,6 +351,7 @@ Statistics
   ├─ Queries:                %d
   ├─ Errors:                 %d
   ├─ Queries success rate:   %s
+  ├─ Speed factor:           %.4f
   ├─ Duration difference:    %s
   └─ Replayer speed:         %s
 
@@ -351,6 +370,7 @@ Statistics
 		Bold(r.queries),
 		Bold(r.errors),
 		Bold(prcSuccess),
+		Bold(o.factor),
 		Bold(durationDelta),
 		Bold(prcSpeedStr),
 		// footnote
@@ -362,7 +382,19 @@ func newSpinner(t int) *spinner.Spinner {
 	return spinner.New(spinner.CharSets[t], 100*time.Millisecond)
 }
 
-func (db database) worker(jobs chan job, errors chan error, noDryRun bool, wg *sync.WaitGroup) {
+func updateSpinner(s *spinner.Spinner, newQueries chan int) {
+	var queries int
+	for {
+		_, ok := <-newQueries
+		if !ok {
+			return
+		}
+		queries++
+		s.Suffix = " queries replayed: " + strconv.Itoa(queries)
+	}
+}
+
+func (db database) worker(jobs chan job, errors chan error, queries chan int, noDryRun bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		j, ok := <-jobs
@@ -378,12 +410,13 @@ func (db database) worker(jobs chan job, errors chan error, noDryRun bool, wg *s
 			rows, err := db.drv.Query(j.query)
 			if err != nil {
 				errors <- err
-				db.logger.Debugf("failed to execute query:\n%s\nerror: %s", j.query, err)
+				db.logger.Tracef("failed to execute query:\n%s\nerror: %s", j.query, err)
 			}
 			if rows != nil {
 				rows.Close()
 			}
 		}
+		queries <- 42
 	}
 }
 
