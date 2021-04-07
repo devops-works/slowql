@@ -57,11 +57,6 @@ type results struct {
 	realDuration time.Duration
 }
 
-type job struct {
-	idle  time.Duration
-	query string
-}
-
 func main() {
 	var opt options
 
@@ -429,33 +424,29 @@ func newSpinner(t int) *spinner.Spinner {
 func (db database) worker(queries chan string, errors chan error, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		select {
-		case q, ok := <-queries:
-			if !ok {
-				db.logger.Trace("channel closed, worker exiting")
-				return
-			}
-			rows, err := db.drv.Query(q)
-			if err != nil {
-				errors <- err
-				db.logger.Debugf("failed to execute query:\n%s\nerror: %s", q, err)
-			}
-			if rows != nil {
-				rows.Close()
-			}
+		q, ok := <-queries
+		if !ok {
+			db.logger.Trace("channel closed, worker exiting")
+			return
+		}
+		rows, err := db.drv.Query(q)
+		if err != nil {
+			errors <- err
+			db.logger.Debugf("failed to execute query:\n%s\nerror: %s", q, err)
+		}
+		if rows != nil {
+			rows.Close()
 		}
 	}
 }
 
 func (r *results) errorsCollector(errors chan error) {
 	for {
-		select {
-		case _, ok := <-errors:
-			if !ok {
-				return
-			}
-			r.errors++
+		_, ok := <-errors
+		if !ok {
+			return
 		}
+		r.errors++
 	}
 }
 
