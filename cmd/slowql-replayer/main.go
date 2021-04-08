@@ -125,7 +125,7 @@ func main() {
 
 	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	db.logger.Infof("estimated time of end: %s", time.Now().
-		Add(realExec/time.Duration(db.speedFactor)).Format("Mon Jan 2 15:04:05"))
+		Add(time.Duration(float64(realExec)/db.speedFactor)).Format("Mon Jan 2 15:04:05"))
 
 	r, err := db.replay(f)
 	if err != nil {
@@ -154,6 +154,12 @@ func (o *options) parse() []error {
 		errs = append(errs, errors.New("no database provided"))
 	} else if o.workers <= 0 {
 		errs = append(errs, errors.New("cannot create negative number or zero workers"))
+	} else if o.factor <= 0 {
+		errs = append(errs, errors.New("cannot use a speed factor inferior or equal to 0"))
+	}
+
+	if len(errs) != 0 {
+		return errs
 	}
 
 	if o.usePass {
@@ -285,14 +291,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 		var j job
 		delta := q.Time.Sub(reference)
-		diviser := time.Duration(db.speedFactor)
-		if diviser >= 1.0 {
-			j.idle = start.Add(delta / diviser)
-		} else if diviser > 0.0 {
-			j.idle = start.Add(delta * (1 / diviser))
-		} else {
-			j.idle = start.Add(delta)
-		}
+		j.idle = start.Add(time.Duration(float64(delta) / db.speedFactor))
 		j.query = q.Query
 		db.logger.Tracef("next sleeping time: %s", j.idle)
 
