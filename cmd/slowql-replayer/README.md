@@ -75,11 +75,19 @@ Statistics
 
 ### Adjustments
 
+#### Speed
+
 You can also adjust a speed factor with the option `-x` which can receive a float. For example, if you set the speed factor to `2`, it will replay the queries twice as fast. On the ortherhand, if you set it to `0.5`, it will replay twice as slow.
+
+#### Concurrency
 
 Also, you can specify the number of workers that will request the database is simultaneously with `-w`. This way, you can simulate concurrency. The default value is `100`.
 
+#### Progress bar
+
 If the progress bar bother you, you can hide it with `-hide-progress`.
+
+#### Databases kinds
 
 The following table shows all the accepted values for `-k`
 
@@ -96,16 +104,12 @@ We successfully tested `slowql-replay` on:
 * Locally
     - [X] MySQL
     - [X] MariaDB
-    - [ ] MongoDB
-    - [ ] PostgreSQL
     - [ ] Percona-db
     - [X] Percona-cluster
 
 * In real life
     - [ ] MySQL
     - [ ] MariaDB
-    - [ ] MongoDB
-    - [ ] PostgreSQL
     - [ ] Percona-db
     - [ ] Percona-cluster
 
