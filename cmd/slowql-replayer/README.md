@@ -85,7 +85,7 @@ Also, you can specify the number of workers that will request the database is si
 
 #### Progress bar
 
-If the progress bar bother you, you can hide it with `-hide-progress`.
+If the progress bar bothers you, you can hide it with `-hide-progress`.
 
 #### Databases kinds
 
