@@ -66,6 +66,13 @@ parsed 278077 queries in 8.099622786s
 
 which is approx. **34760 queries/second**.
 
+## Associated tools
+
+With this package we created some tools:
+
+* [slowql-replayer](https://github.com/devops-works/slowql/tree/develop/cmd/slowql-replayer): replay and benchmark queries from a slow query log
+* [slowql-digest](https://github.com/devops-works/slowql/tree/develop/cmd/slowql-digest): digest and analyze slow query logs. Similar to `pt-query-digest`, but faster :upside_down_face:
+
 ## Notes
 
 ### Tested databases
