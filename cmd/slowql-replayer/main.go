@@ -8,13 +8,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/briandowns/spinner"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/cmd/slowql-replayer/pprof"
 	"github.com/devops-works/slowql/query"
@@ -39,6 +38,7 @@ type options struct {
 	usePass    bool
 	noDryRun   bool
 	showErrors bool
+	hidePB     bool
 }
 
 type database struct {
@@ -81,6 +81,7 @@ func main() {
 	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
 	flag.BoolVar(&opt.noDryRun, "no-dry-run", false, "Replay the requests on the database for real")
 	flag.BoolVar(&opt.showErrors, "show-errors", false, "Show SQL errors when they occur")
+	flag.BoolVar(&opt.hidePB, "hide-progress", false, "Hide progress bar while replaying")
 	flag.Parse()
 
 	if errs := opt.parse(); len(errs) > 0 {
@@ -126,11 +127,16 @@ func main() {
 		db.logger.Warn("replaying with dry run")
 	}
 
+	num, err := getQueriesNumber(db.kind, opt.file)
+	if err != nil {
+		db.logger.Fatalf("cannot get total number of queries: %s", err)
+	}
+
 	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
 	db.logger.Infof("estimated time of end: %s", time.Now().
 		Add(time.Duration(float64(realExec)/db.speedFactor)).Format("Mon Jan 2 15:04:05"))
 
-	r, err := db.replay(f)
+	r, err := db.replay(f, num, opt.hidePB)
 	if err != nil {
 		db.logger.Fatalf("cannot replay %s: %s", opt.kind, err)
 	}
@@ -244,13 +250,13 @@ func (o options) createDB() (*database, error) {
 	db.logger.Debugf("db max idle conns: %d", maxIdle)
 
 	db.showErrors = o.showErrors
-	db.logger.Debugf("show errors: %s", db.showErrors)
+	db.logger.Debugf("show errors: %v", db.showErrors)
 
 	return &db, nil
 }
 
 // replay replays the queries from a slow query log file to a database
-func (db *database) replay(f io.Reader) (results, error) {
+func (db *database) replay(f io.Reader, totQ int, hidePB bool) (results, error) {
 	var r results
 
 	p := slowql.NewParser(db.kind, f)
@@ -268,12 +274,18 @@ func (db *database) replay(f io.Reader) (results, error) {
 		go db.worker(jobs, errors, queries, db.noDryRun, &wg)
 	}
 	db.logger.Debugf("created %d workers successfully", workersCounter)
+
 	db.logger.Debug("starting errors collector")
 	go r.errorsCollector(errors, db.showErrors)
 
-	s := newSpinner(34)
-	s.Start()
-	go updateSpinner(s, queries)
+	var bar *pb.ProgressBar
+	// start all the progress bar stuff is asked
+	if !hidePB {
+		tmpl := `{{counters .}} {{ bar . "[" ("▉" | green) (cycle . "▉" " " | green ) "." "]"}} {{speed .}} {{percent .}}`
+		bar = pb.ProgressBarTemplate(tmpl).Start(totQ)
+		bar.SetRefreshRate(400 * time.Millisecond)
+		go updateBar(bar, queries)
+	}
 
 	firstPass := true
 
@@ -289,7 +301,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 
 		r.queries++
 
-		// We need a reference time
+		// we need a reference time
 		if firstPass {
 			firstPass = false
 			reference = q.Time
@@ -310,9 +322,13 @@ func (db *database) replay(f io.Reader) (results, error) {
 	close(errors)
 	db.logger.Debug("closed errors channel")
 
-	s.Stop()
-	close(queries)
-	db.logger.Debug("spinned stopped and update channel closed")
+	// terminate all the stuff related to the progress bar if it has been
+	// created
+	if !hidePB {
+		bar.Finish()
+		close(queries)
+		db.logger.Debug("progress bar stopped and update channel closed")
+	}
 
 	r.duration = time.Since(start)
 	db.logger.Infof("replay ended on %s", time.Now().Format("Mon Jan 2 15:04:05"))
@@ -342,6 +358,7 @@ func (r results) show(o options) {
 =-= Results =-=
 
 Replay duration:  %s
+real duration:    %s
 Log file:         %s
 Dry run:          %v
 Workers:          %d
@@ -363,6 +380,7 @@ Statistics
 %s: the replayer may take a little more time due to the numerous conditions that are verified during the replay.
 `,
 		Bold(r.duration),
+		Bold(r.realDuration),
 		Bold(o.file),
 		Bold(r.dryRun),
 		Bold(o.workers),
@@ -383,19 +401,13 @@ Statistics
 	)
 }
 
-func newSpinner(t int) *spinner.Spinner {
-	return spinner.New(spinner.CharSets[t], 100*time.Millisecond)
-}
-
-func updateSpinner(s *spinner.Spinner, newQueries chan int) {
-	var queries int
+func updateBar(bar *pb.ProgressBar, newQueries chan int) {
 	for {
 		_, ok := <-newQueries
 		if !ok {
 			return
 		}
-		queries++
-		s.Suffix = " queries replayed: " + strconv.Itoa(queries)
+		bar.Increment()
 	}
 }
 
@@ -507,4 +519,26 @@ func getRealTime(k, file string) (time.Duration, error) {
 	default:
 		return time.Duration(0), nil
 	}
+}
+
+func getQueriesNumber(k slowql.Kind, f string) (int, error) {
+	var queriesCounter int
+
+	fd, err := os.Open(f)
+	if err != nil {
+		return -1, err
+	}
+
+	p := slowql.NewParser(k, fd)
+
+	var q query.Query
+	for {
+		q = p.GetNext()
+		if (q == query.Query{}) {
+			break
+		}
+		queriesCounter++
+	}
+	fd.Close()
+	return queriesCounter, nil
 }
