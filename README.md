@@ -2,14 +2,16 @@
 
 A slow query logs parser in Golang.
 
-- [Gettin' started](#gettin-started)
-- [Basic usage](#basic-usage)
-- [Performances](#performances)
-- [Notes](#notes)
-  - [Tested databases](#tested-databases)
-  - [Internal](#internal)
-- [Contributing](#contributing)
-- [License](#license)
+- [slowql](#slowql)
+  - [Gettin' started](#gettin-started)
+  - [Basic usage](#basic-usage)
+  - [Performances](#performances)
+  - [Associated tools](#associated-tools)
+  - [Notes](#notes)
+    - [Tested databases](#tested-databases)
+    - [Internal](#internal)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Gettin' started
 
@@ -71,7 +73,7 @@ which is approx. **34760 queries/second**.
 With this package we created some tools:
 
 * [slowql-replayer](https://github.com/devops-works/slowql/tree/develop/cmd/slowql-replayer): replay and benchmark queries from a slow query log
-* [slowql-digest](https://github.com/devops-works/slowql/tree/develop/cmd/slowql-digest): digest and analyze slow query logs. Similar to `pt-query-digest`, but faster :upside_down_face:
+* [slowql-digest](https://github.com/devops-works/slowql/tree/develop/cmd/slowql-digest): digest and analyze slow query logs. Similar to `pt-query-digest`, but faster. :upside_down_face:
 
 ## Notes
 
