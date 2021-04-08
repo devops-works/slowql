@@ -26,18 +26,19 @@ import (
 )
 
 type options struct {
-	user     string
-	host     string
-	pass     string
-	file     string
-	kind     string
-	database string
-	loglvl   string
-	pprof    string
-	workers  int
-	factor   float64
-	usePass  bool
-	noDryRun bool
+	user       string
+	host       string
+	pass       string
+	file       string
+	kind       string
+	database   string
+	loglvl     string
+	pprof      string
+	workers    int
+	factor     float64
+	usePass    bool
+	noDryRun   bool
+	showErrors bool
 }
 
 type database struct {
@@ -48,6 +49,7 @@ type database struct {
 	logger      *logrus.Logger
 	wrks        int
 	speedFactor float64
+	showErrors  bool
 }
 
 type results struct {
@@ -78,6 +80,7 @@ func main() {
 	flag.Float64Var(&opt.factor, "x", 1, "Speed factor")
 	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
 	flag.BoolVar(&opt.noDryRun, "no-dry-run", false, "Replay the requests on the database for real")
+	flag.BoolVar(&opt.showErrors, "show-errors", false, "Show SQL errors when they occur")
 	flag.Parse()
 
 	if errs := opt.parse(); len(errs) > 0 {
@@ -240,6 +243,9 @@ func (o options) createDB() (*database, error) {
 	db.logger.Debugf("db max open conns: %d", maxOpen)
 	db.logger.Debugf("db max idle conns: %d", maxIdle)
 
+	db.showErrors = o.showErrors
+	db.logger.Debugf("show errors: %s", db.showErrors)
+
 	return &db, nil
 }
 
@@ -263,7 +269,7 @@ func (db *database) replay(f io.Reader) (results, error) {
 	}
 	db.logger.Debugf("created %d workers successfully", workersCounter)
 	db.logger.Debug("starting errors collector")
-	go r.errorsCollector(errors)
+	go r.errorsCollector(errors, db.showErrors)
 
 	s := newSpinner(34)
 	s.Start()
@@ -419,13 +425,16 @@ func (db database) worker(jobs chan job, errors chan error, queries chan int, no
 	}
 }
 
-func (r *results) errorsCollector(errors chan error) {
+func (r *results) errorsCollector(errors chan error, showErrors bool) {
 	for {
-		_, ok := <-errors
+		e, ok := <-errors
 		if !ok {
 			return
 		}
 		r.errors++
+		if showErrors {
+			fmt.Printf("\n%s: %s\n", Red("SQL error"), e.Error())
+		}
 	}
 }
 
