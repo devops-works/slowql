@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"database/sql"
 	"errors"
 	"flag"
@@ -115,9 +114,9 @@ func main() {
 	}
 
 	db.logger.Info("getting real execution time")
-	realExec, err := getRealTime(opt.kind, opt.file)
+	num, realExec, err := getReferences(db.kind, opt.file)
 	if err != nil {
-		db.logger.Fatalf("cannot get real duration from log file: %s", err)
+		db.logger.Fatalf("cannot get references from log file: %s", err)
 	}
 
 	db.logger.Infof("%d workers will be created", opt.workers)
@@ -125,11 +124,6 @@ func main() {
 		db.logger.Warn("no-dry-run flag found, queries will be executed")
 	} else {
 		db.logger.Warn("replaying with dry run")
-	}
-
-	num, err := getQueriesNumber(db.kind, opt.file)
-	if err != nil {
-		db.logger.Fatalf("cannot get total number of queries: %s", err)
 	}
 
 	db.logger.Infof("replay started on %s", time.Now().Format("Mon Jan 2 15:04:05"))
@@ -450,95 +444,34 @@ func (r *results) errorsCollector(errors chan error, showErrors bool) {
 	}
 }
 
-// getRealTime returns the real duration of the slow query log based on the Time
-// tags in the headers
-func getRealTime(k, file string) (time.Duration, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return time.Duration(0), err
-	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	var start, end string
-
-	switch k {
-	case "mysql", "pxc":
-		// Get the first Time
-		for s.Scan() {
-			if strings.Contains(s.Text(), "Time:") {
-				parts := strings.Split(s.Text(), " ")
-				start = parts[2]
-				break
-			}
-		}
-
-		// Get the last time
-		for s.Scan() {
-			if strings.Contains(s.Text(), "Time:") {
-				parts := strings.Split(s.Text(), " ")
-				end = parts[2]
-			}
-		}
-
-		timeStart, err := time.Parse("2006-01-02T15:04:05.999999Z", start)
-		if err != nil {
-			return time.Duration(0), err
-		}
-		timeEnd, err := time.Parse("2006-01-02T15:04:05.999999Z", end)
-		if err != nil {
-			return time.Duration(0), err
-		}
-		return timeEnd.Sub(timeStart), nil
-	case "mariadb":
-		// Get the first Time
-		for s.Scan() {
-			if strings.Contains(s.Text(), "Time:") {
-				parts := strings.Split(s.Text(), " ")
-				start = parts[2] + " " + parts[3]
-				break
-			}
-		}
-		// Get the last time
-		for s.Scan() {
-			if strings.Contains(s.Text(), "Time:") {
-				parts := strings.Split(s.Text(), " ")
-				end = parts[2] + " " + parts[3]
-			}
-		}
-
-		timeStart, err := time.Parse("060102 15:04:05", start)
-		if err != nil {
-			return time.Duration(0), err
-		}
-		timeEnd, err := time.Parse("060102 15:04:05", end)
-		if err != nil {
-			return time.Duration(0), err
-		}
-		return timeEnd.Sub(timeStart), nil
-	default:
-		return time.Duration(0), nil
-	}
-}
-
-func getQueriesNumber(k slowql.Kind, f string) (int, error) {
+// getReferences returns the reference log fuartion and the number of queries
+func getReferences(k slowql.Kind, f string) (int, time.Duration, error) {
 	var queriesCounter int
 
 	fd, err := os.Open(f)
 	if err != nil {
-		return -1, err
+		return -1, 0, err
 	}
 
 	p := slowql.NewParser(k, fd)
 
 	var q query.Query
+	firstPass := true
+	var reference, lastTime time.Time
 	for {
 		q = p.GetNext()
 		if (q == query.Query{}) {
 			break
 		}
+
+		if firstPass {
+			firstPass = false
+			reference = q.Time
+		}
 		queriesCounter++
+		lastTime = q.Time
 	}
 	fd.Close()
-	return queriesCounter, nil
+	duration := lastTime.Sub(reference)
+	return queriesCounter, duration, nil
 }
