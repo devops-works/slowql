@@ -11,41 +11,75 @@ $ go install github.com/devops-works/slowql/cmd/slowql-replayer
 ## Usage
 
 ```
-Usage of ./slowql-replayer:
+Usage of slowql-replayer:
   -db string
         Name of the database to use
-  -dry
-        Replay the requests but don't write in the database
   -f string
         Slow query log file to use
   -h string
         Addres of the database, with IP and port
+  -hide-progress
+        Hide progress bar while replaying
   -k string
         Kind of the database (mysql, mariadb...)
   -l string
         Logging level (default "info")
+  -no-dry-run
+        Replay the requests on the database for real
   -p    Use a password to connect to database
+  -pprof string
+        pprof server address
+  -show-errors
+        Show SQL errors when they occur
   -u string
         User to use to connect to database
+  -w int
+        Number of maximum simultaneous connections to database (default 100)
+  -x float
+        Speed factor (default 1)
 ```
 
 A typical example might be:
 
 ```
-$ ./slowql-replayer -db users -f samples/mariadb_slowquery.log -h 127.0.0.1:3306 -k mariadb -u ezekiel -p
+$ ./slowql-replayer -u ezekiel -p -h 192.168.1.2:3306 -k mysql -f ~/files/databases/log/mysql.log -db mydb
 ```
 
-By adding `-dry`, it will not send the queries to the database, but just sleep the required time to simulate the real-life scenario.
+By adding `-no-dry-run`, it will send the queries to the database for real.
 
 At the end, a short report is displayed:
 
 ```
-+---------+---------+---------+--------+---------------+
-|   DB    | DRY RUN | QUERIES | ERRORS |   DURATION    |
-+---------+---------+---------+--------+---------------+
-| mariadb |  false  |  1395   |   17   | 49.744778454s |
-+---------+---------+---------+--------+---------------+
+=-= Results =-=
+
+Replay duration:  49.330633992s
+Real duration:    49.327466s
+Log file:         /home/ezekiel/files/databases/log/mysql.log
+Dry run:          false
+Workers:          100
+
+Database
+  ├─ kind:      mysql
+  ├─ user:      ezekiel
+  ├─ use pass:  true
+  └─ address:   192.168.1.2:3306
+
+Statistics
+  ├─ Queries:                90004
+  ├─ Errors:                 2
+  ├─ Queries success rate:   99.9978%
+  ├─ Speed factor:           1.0000
+  ├─ Duration difference:    replayer took 3.167992ms more
+  └─ Replayer speed:         -0.0064%
 ```
+
+### Adjustments
+
+You can also adjust a speed factor with the option `-x` which can receive a float. For example, if you set the speed factor to `2`, it will replay the queries twice as fast. On the ortherhand, if you set it to `0.5`, it will replay twice as slow.
+
+Also, you can specify the number of workers that will request the database is simultaneously with `-w`. This way, you can simulate concurrency. The default value is `100`.
+
+If the progress bar bother you, you can hide it with `-hide-progress`.
 
 The following table shows all the accepted values for `-k`
 

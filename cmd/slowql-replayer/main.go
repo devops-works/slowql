@@ -358,7 +358,7 @@ func (r results) show(o options) {
 =-= Results =-=
 
 Replay duration:  %s
-real duration:    %s
+Real duration:    %s
 Log file:         %s
 Dry run:          %v
 Workers:          %d
