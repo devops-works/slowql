@@ -4,20 +4,37 @@ import (
 	"bytes"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
+	. "github.com/logrusorgru/aurora"
 	"github.com/sirupsen/logrus"
 )
 
+type app struct {
+	mu             sync.Mutex
+	logger         *logrus.Logger
+	kind           slowql.Kind
+	fd             io.Reader
+	p              slowql.Parser
+	res            map[string]statistics
+	digestDuration time.Duration
+	queriesNumber  int
+}
+
 type options struct {
-	filepath string
-	file     *os.File
-	debug    bool
-	quiet    bool
+	logfile  string
+	loglevel string
+	kind     string
+	top      int
+	order    string
+	dec      bool
 }
 
 type statistics struct {
@@ -27,97 +44,180 @@ type statistics struct {
 	calls           int
 	cumErrored      int
 	cumKilled       int
-	cumQueryTime    time.Time
-	cumLockTime     time.Time
+	cumQueryTime    time.Duration
+	cumLockTime     time.Duration
 	cumRowsSent     int
 	cumRowsExamined int
 	cumBytesSent    int
 	concurrency     float64
-	minTime         time.Time
-	maxTime         time.Time
-	meanTime        time.Time
-	p50Time         time.Time
-	p95Time         time.Time
-	stddevTime      time.Time
+	minTime         time.Duration
+	maxTime         time.Duration
+	meanTime        time.Duration
+	p50Time         time.Duration
+	p95Time         time.Duration
+	stddevTime      time.Duration
 }
-
-type results map[string]statistics
 
 func main() {
-	var opt options
-	flag.StringVar(&opt.filepath, "file", "", "Slow query log file")
-	flag.BoolVar(&opt.debug, "debug", false, "Show debug logs")
-	flag.BoolVar(&opt.quiet, "quiet", false, "Quiet mode: show only errors")
+	var o options
+	flag.StringVar(&o.logfile, "f", "", "Slow query log file to digest")
+	flag.StringVar(&o.loglevel, "l", "info", "Log level")
+	flag.StringVar(&o.kind, "k", "", "Database kind")
+	flag.IntVar(&o.top, "top", 3, "Top queries to show")
+	flag.StringVar(&o.order, "order", "random", "How to order queries")
+	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
 	flag.Parse()
 
-	if err := opt.parse(); err != nil {
-		logrus.Fatal(err)
+	errs := o.parse()
+	if len(errs) != 0 {
+		flag.Usage()
+		for _, e := range errs {
+			logrus.Warn(e)
+		}
+		logrus.Fatal("cannot parse options")
 	}
 
-	lines, err := lineCounter(opt.file)
+	a, err := newApp(o.loglevel, o.kind)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Fatalf("cannot create app: %s", err)
 	}
-	logrus.Infof("file has %d lines", lines)
 
-	p := slowql.NewParser(slowql.PXC, opt.file)
-	logrus.Debug("slowql parser created successfully")
+	a.fd, err = os.Open(o.logfile)
+	if err != nil {
+		a.logger.Fatalf("cannot open log file: %s", err)
+	}
+	a.logger.Debugf("%s successfully opened", o.logfile)
 
+	// no need to compute stuff if it will not be displayed
+	if a.logger.Level >= logrus.InfoLevel {
+		fd, err := os.Open(o.logfile)
+		if err != nil {
+			a.logger.Errorf("cannot open log file to count lines: %s", err)
+		}
+		lines, err := lineCounter(fd)
+		if err != nil {
+			a.logger.Errorf("cannot count lines in log file: %s", err)
+		}
+		a.logger.Infof("log file has %d lines", lines)
+		fd.Close()
+	}
+
+	var q query.Query
+	var wg sync.WaitGroup
+	a.p = slowql.NewParser(a.kind, a.fd)
+	start := time.Now()
 	for {
-		q := p.GetNext()
-
-		// If the query is empty, there is no more queries to get
+		q = a.p.GetNext()
 		if q == (query.Query{}) {
-			logrus.Debug("no more queries to get from the slow query log file")
+			a.logger.Debug("no more queries, breaking for loop")
 			break
 		}
+		a.queriesNumber++
+		wg.Add(1)
+		go a.digest(q, &wg)
 	}
-}
+	wg.Wait()
+	a.digestDuration = time.Since(start)
 
-// parse parses the different flags
-func (o *options) parse() error {
-	var err error
-	if o.filepath == "" {
-		return errors.New("no file provided")
-	}
+	a.logger.Infof("digest duration: %s", a.digestDuration)
+	a.logger.Infof("parsed %d queries", a.queriesNumber)
+	a.logger.Infof("found %d different queries hashs", len(a.res))
 
-	// Open file to obtain io.Reader
-	o.file, err = os.Open(o.filepath)
+	var res []statistics
+	res, err = sortResults(a.res, o.order, o.dec)
 	if err != nil {
-		return err
-	}
-	logrus.Infof("using %s as input file", o.file.Name())
-
-	// Set global log level depending on the different options that have been
-	// provided
-	logrus.SetLevel(logrus.InfoLevel)
-	if o.debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-	if o.quiet {
-		logrus.SetLevel(logrus.ErrorLevel)
+		a.logger.Errorf("cannot sort results: %s", err)
+		o.order = "random"
+		res, err = sortResults(a.res, o.order, o.dec)
+		if err != nil {
+			a.logger.Fatalf("cannot sort results: %s", err)
+		}
 	}
 
-	return nil
+	showResults(res, o.order, o.top)
+
+	a.logger.Debug("end of program, exiting")
 }
 
-// lineCounter returns the number of new line caracters that have been found in
-// the io.Reader content
+func showResults(res []statistics, order string, count int) {
+	fmt.Printf("\nOrdered by: %s\n", Bold(order))
+
+	for i := 0; i < len(res); i++ {
+		if count == 0 {
+			return
+		}
+
+		fmt.Printf(`
+%s%d
+Calls:             %d
+Hash:              %s
+Fingerprint:       %s
+Schema:            %s
+Cum Bytes sent:    %d
+Cum Rows Examined: %d
+Cum Rows Sent:     %d
+Cum Killed:        %d
+Cum Lock Time:     %s
+			`,
+			Bold(Underline("Query #")),
+			Bold(Underline(i+1)),
+			res[i].calls,
+			res[i].hash,
+			res[i].fingerprint,
+			res[i].schema,
+			res[i].cumBytesSent,
+			res[i].cumRowsExamined,
+			res[i].cumRowsSent,
+			res[i].cumKilled,
+			res[i].cumLockTime,
+		)
+
+		count--
+	}
+}
+
 func lineCounter(r io.Reader) (int, error) {
 	buf := make([]byte, 32*1024)
 	count := 0
-	lineSep := []byte{'\n'}
 
+	lineSep := []byte{'\n'}
 	for {
 		c, err := r.Read(buf)
 		count += bytes.Count(buf[:c], lineSep)
-
 		switch {
 		case err == io.EOF:
 			return count, nil
-
 		case err != nil:
 			return count, err
 		}
 	}
+}
+
+func sortResults(res map[string]statistics, order string, dec bool) ([]statistics, error) {
+	var s []statistics
+	for _, val := range res {
+		s = append(s, val)
+	}
+
+	switch order {
+	case "random":
+		break
+	case "calls":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].calls < s[j].calls
+		})
+	case "bytes":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].cumBytesSent < s[j].cumBytesSent
+		})
+	default:
+		return nil, errors.New("unknown order, using 'random'")
+	}
+
+	if dec {
+		for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+			s[i], s[j] = s[j], s[i]
+		}
+	}
+	return s, nil
 }
