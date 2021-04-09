@@ -1,0 +1,18 @@
+# Build stage
+FROM devopsworks/golang-upx:1.15 AS builder
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
+COPY . /app
+WORKDIR /app/cmd/slowql-replayer
+RUN make build && \
+    strip ./out/bin/slowql-replayer && \
+    /usr/local/bin/upx -9 ./out/bin/slowql-replayer
+
+# Run stage
+FROM gcr.io/distroless/base-debian10
+COPY --from=builder /app/cmd/slowql-replayer/out/bin /app
+COPY --from=builder /app/slowquery.log /app
+WORKDIR /app
+ENTRYPOINT ["./slowql-replayer"]

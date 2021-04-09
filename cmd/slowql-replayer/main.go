@@ -70,7 +70,7 @@ func main() {
 
 	flag.StringVar(&opt.user, "u", "", "User to use to connect to database")
 	flag.StringVar(&opt.host, "h", "", "Addres of the database, with IP and port")
-	flag.StringVar(&opt.file, "f", "", "Slow query log file to use")
+	flag.StringVar(&opt.file, "f", "./slowquery.log", "Slow query log file to use")
 	flag.StringVar(&opt.kind, "k", "", "Kind of the database (mysql, mariadb...)")
 	flag.StringVar(&opt.database, "db", "", "Name of the database to use")
 	flag.StringVar(&opt.loglvl, "l", "info", "Logging level")

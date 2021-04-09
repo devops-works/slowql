@@ -4,9 +4,25 @@ A tool to replay queries from a slow query log file.
 
 ## Installation
 
+There is multiple ways to get `slowql-replayer`.
+
+### By using `go install`
+
 ```
 $ go install github.com/devops-works/slowql/cmd/slowql-replayer
 ```
+
+### By cloning the repo and building it
+
+```
+$ git clone https://github.com/devops-works/slowql
+$ cd slowql/cmd/slowql-replayer
+$ make build
+```
+
+### By downloading the pre-built binary
+
+You can find the latest version in the [releases](https://github.com/devops-works/slowql/releases)
 
 ## Usage
 
@@ -71,6 +87,16 @@ Statistics
   ├─ Speed factor:           1.0000
   ├─ Duration difference:    replayer took 3.167992ms more
   └─ Replayer speed:         -0.0064%
+```
+
+## Docker
+
+Build the image (you need to be at the root of the repo):
+
+```
+$ docker build -f Dockerfile.replayer -t slowql-replayer
+...
+$ docker run --rm -it slowql-replayer [OPTIONS]
 ```
 
 ### Adjustments
