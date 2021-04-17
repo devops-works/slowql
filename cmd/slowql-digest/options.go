@@ -4,7 +4,6 @@ import "errors"
 
 func (o *options) parse() []error {
 	var errs []error
-	orders := []string{"random", "calls", "bytes"}
 	if o.logfile == "" {
 		errs = append(errs, errors.New("no slow query log file provided"))
 	} else if o.kind == "" {

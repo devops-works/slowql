@@ -65,6 +65,7 @@ func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 		cur.cumLockTime += time.Duration(q.LockTime)
 		cur.cumRowsExamined += q.RowsExamined
 		cur.cumRowsSent += q.RowsSent
+		s.cumQueryTime += time.Duration(q.QueryTime)
 
 		// update the entry in the map
 		a.res[s.hash] = cur
@@ -76,6 +77,7 @@ func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 		s.cumLockTime = time.Duration(q.LockTime)
 		s.cumRowsExamined = q.RowsExamined
 		s.cumRowsSent = q.RowsSent
+		s.cumQueryTime = time.Duration(q.QueryTime)
 
 		// getting those values is done only once: same hash == same fingerprint & schema
 		s.schema = q.Schema

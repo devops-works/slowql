@@ -58,15 +58,26 @@ type statistics struct {
 	stddevTime      time.Duration
 }
 
+var orders = []string{"random", "calls", "bytes_sent", "query_time", "lock_time",
+	"rows_sent", "rows_examined", "killed"}
+
 func main() {
 	var o options
 	flag.StringVar(&o.logfile, "f", "", "Slow query log file to digest")
 	flag.StringVar(&o.loglevel, "l", "info", "Log level")
 	flag.StringVar(&o.kind, "k", "", "Database kind")
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")
-	flag.StringVar(&o.order, "order", "random", "How to order queries")
+	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. use ? to see all the available values")
 	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
 	flag.Parse()
+
+	if o.order == "?" {
+		fmt.Println("Available values:")
+		for _, val := range orders {
+			fmt.Printf("    %s\n", val)
+		}
+		return
+	}
 
 	errs := o.parse()
 	if len(errs) != 0 {
@@ -105,6 +116,8 @@ func main() {
 	var q query.Query
 	var wg sync.WaitGroup
 	a.p = slowql.NewParser(a.kind, a.fd)
+	a.logger.Debug("slowql parser created")
+	a.logger.Debug("query analysis started")
 	start := time.Now()
 	for {
 		q = a.p.GetNext()
@@ -140,11 +153,11 @@ func main() {
 }
 
 func showResults(res []statistics, order string, count int) {
-	fmt.Printf("\nOrdered by: %s\n", Bold(order))
-
+	fmt.Printf("\nSorted by: %s\n", Bold(order))
+	fmt.Printf("Showing top %d queries\n", Bold(count))
 	for i := 0; i < len(res); i++ {
 		if count == 0 {
-			return
+			break
 		}
 
 		fmt.Printf(`
@@ -158,6 +171,7 @@ Cum Rows Examined: %d
 Cum Rows Sent:     %d
 Cum Killed:        %d
 Cum Lock Time:     %s
+Cum Query Time:    %s
 			`,
 			Bold(Underline("Query #")),
 			Bold(Underline(i+1)),
@@ -170,10 +184,12 @@ Cum Lock Time:     %s
 			res[i].cumRowsSent,
 			res[i].cumKilled,
 			res[i].cumLockTime,
+			res[i].cumQueryTime,
 		)
 
 		count--
 	}
+	fmt.Println()
 }
 
 func lineCounter(r io.Reader) (int, error) {
@@ -206,9 +222,29 @@ func sortResults(res map[string]statistics, order string, dec bool) ([]statistic
 		sort.SliceStable(s, func(i, j int) bool {
 			return s[i].calls < s[j].calls
 		})
-	case "bytes":
+	case "bytes_sent":
 		sort.SliceStable(s, func(i, j int) bool {
 			return s[i].cumBytesSent < s[j].cumBytesSent
+		})
+	case "query_time":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].cumQueryTime < s[j].cumQueryTime
+		})
+	case "lock_time":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].cumLockTime < s[j].cumLockTime
+		})
+	case "rows_sent":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].cumRowsSent < s[j].cumRowsSent
+		})
+	case "rows_examined":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].cumRowsExamined < s[j].cumRowsExamined
+		})
+	case "killed":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].cumKilled < s[j].cumKilled
 		})
 	default:
 		return nil, errors.New("unknown order, using 'random'")
