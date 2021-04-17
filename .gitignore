@@ -3,3 +3,4 @@ samples/*
 *.notes
 main
 /.vscode/
+out/
