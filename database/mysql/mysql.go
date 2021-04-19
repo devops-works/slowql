@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Database holds parser structure
+// Database holds database structure
 type Database struct {
 	WaitingList      chan query.Query
 	ServerMeta       chan server.Server
@@ -19,7 +19,7 @@ type Database struct {
 	srv              server.Server
 }
 
-// New instance of parser
+// New instance of mysql database
 func New(qc chan query.Query) *Database {
 	p := Database{
 		WaitingList:      qc,
@@ -141,7 +141,7 @@ func (db *Database) parseMySQLHeader(line string, q *query.Query) {
 }
 
 // ParseServerMeta parses server meta information
-func (p *Database) ParseServerMeta(lines chan []string) {
+func (db *Database) ParseServerMeta(lines chan []string) {
 	for {
 		select {
 		case header := <-lines:
@@ -153,19 +153,19 @@ func (p *Database) ParseServerMeta(lines chan []string) {
 			matches := versionre.FindStringSubmatch(versions)
 
 			if len(matches) != 5 {
-				p.srv.Binary = "unable to parse line"
-				p.srv.VersionShort = p.srv.Binary
-				p.srv.Version = p.srv.Binary
-				p.srv.VersionDescription = p.srv.Binary
-				p.srv.Port = 0
-				p.srv.Socket = p.srv.Binary
+				db.srv.Binary = "unable to parse line"
+				db.srv.VersionShort = db.srv.Binary
+				db.srv.Version = db.srv.Binary
+				db.srv.VersionDescription = db.srv.Binary
+				db.srv.Port = 0
+				db.srv.Socket = db.srv.Binary
 			} else {
-				p.srv.Binary = matches[1]
-				p.srv.VersionShort = matches[2]
-				p.srv.Version = p.srv.VersionShort + matches[3]
-				p.srv.VersionDescription = matches[4]
-				p.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
-				p.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
+				db.srv.Binary = matches[1]
+				db.srv.VersionShort = matches[2]
+				db.srv.Version = db.srv.VersionShort + matches[3]
+				db.srv.VersionDescription = matches[4]
+				db.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
+				db.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
 			}
 
 			return
