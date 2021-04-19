@@ -43,13 +43,14 @@ func TestDatabase_parseMariaDBHeader(t *testing.T) {
 			},
 		},
 		{
-			name: "id, schema", // QC_Hit is not parsed yet
+			name: "id, schema, QC hit",
 			args: args{
 				line: "# Thread_id: 12794  Schema:   QC_hit: No",
 			},
 			refQuery: query.Query{
 				ID:     12794,
 				Schema: "",
+				QC_hit: false,
 			},
 		},
 		{
@@ -167,6 +168,7 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 				RowsAffected: 0,
 				BytesSent:    11,
 				Query:        "SET timestamp=1616499117;SET NAMES utf8mb4;",
+				QC_hit:       false,
 			},
 		},
 	}

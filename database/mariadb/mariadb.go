@@ -119,6 +119,11 @@ func (db *Database) parseMariaDBHeader(line string, q *query.Query) {
 		} else if strings.Contains(part, "schema:") {
 			q.Schema = parts[idx+1]
 
+		} else if strings.Contains(part, "QC_hit") {
+			q.QC_hit = true
+			if parts[idx+1] == "No" {
+				q.QC_hit = false
+			}
 		} else if strings.Contains(part, "last_errno:") {
 			q.LastErrNo, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
