@@ -141,34 +141,28 @@ func (db *Database) parseMariaDBHeader(line string, q *query.Query) {
 }
 
 func (db *Database) ParseServerMeta(lines chan []string) {
-	for {
-		select {
-		case header := <-lines:
-			versions := header[0]
-			net := header[1]
+	header := <-lines
+	versions := header[0]
+	net := header[1]
 
-			// Parse server information
-			versionre := regexp.MustCompile(`^([^,]+),\s+Version:\s+([0-9\.]+)([A-Za-z0-9-]+)\s+\((.*)\)\. started`)
-			matches := versionre.FindStringSubmatch(versions)
+	// Parse server information
+	versionre := regexp.MustCompile(`^([^,]+),\s+Version:\s+([0-9\.]+)([A-Za-z0-9-]+)\s+\((.*)\)\. started`)
+	matches := versionre.FindStringSubmatch(versions)
 
-			if len(matches) != 5 {
-				db.srv.Binary = "unable to parse line"
-				db.srv.VersionShort = db.srv.Binary
-				db.srv.Version = db.srv.Binary
-				db.srv.VersionDescription = db.srv.Binary
-				db.srv.Port = 0
-				db.srv.Socket = db.srv.Binary
-			} else {
-				db.srv.Binary = matches[1]
-				db.srv.VersionShort = matches[2]
-				db.srv.Version = db.srv.VersionShort + matches[3]
-				db.srv.VersionDescription = matches[4]
-				db.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
-				db.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
-			}
-
-			return
-		}
+	if len(matches) != 5 {
+		db.srv.Binary = "unable to parse line"
+		db.srv.VersionShort = db.srv.Binary
+		db.srv.Version = db.srv.Binary
+		db.srv.VersionDescription = db.srv.Binary
+		db.srv.Port = 0
+		db.srv.Socket = db.srv.Binary
+	} else {
+		db.srv.Binary = matches[1]
+		db.srv.VersionShort = matches[2]
+		db.srv.Version = db.srv.VersionShort + matches[3]
+		db.srv.VersionDescription = matches[4]
+		db.srv.Port, _ = strconv.Atoi(strings.Split(net, " ")[2])
+		db.srv.Socket = strings.TrimLeft(strings.Split(net, ":")[2], " ")
 	}
 }
 
