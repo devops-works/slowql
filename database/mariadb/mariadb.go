@@ -119,23 +119,11 @@ func (db *Database) parseMariaDBHeader(line string, q *query.Query) {
 		} else if strings.Contains(part, "schema:") {
 			q.Schema = parts[idx+1]
 
-		} else if strings.Contains(part, "QC_hit") {
+		} else if strings.Contains(part, "qc_hit:") {
 			q.QC_hit = true
 			if parts[idx+1] == "No" {
 				q.QC_hit = false
 			}
-		} else if strings.Contains(part, "last_errno:") {
-			q.LastErrNo, err = strconv.Atoi(parts[idx+1])
-			if err != nil {
-				logrus.Errorf("last_errno: error converting %s to int: %s", parts[idx+1], err)
-			}
-
-		} else if strings.Contains(part, "killed:") {
-			q.Killed, err = strconv.Atoi(parts[idx+1])
-			if err != nil {
-				logrus.Errorf("killed: error converting %s to int: %s", parts[idx+1], err)
-			}
-
 		} else if strings.Contains(part, "bytes_sent:") {
 			q.BytesSent, err = strconv.Atoi(parts[idx+1])
 			if err != nil {
