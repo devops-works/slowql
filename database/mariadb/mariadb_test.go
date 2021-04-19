@@ -1,4 +1,4 @@
-package mysql
+package mariadb
 
 import (
 	"testing"
@@ -11,10 +11,10 @@ import (
 // parseTime is a helper function that allow us to cast a string into a time.Time
 // value in the tests
 func parseTime(t string) time.Time {
-	time, _ := time.Parse(time.RFC3339, t)
+	time, _ := time.Parse("060102 15:04:05", t)
 	return time
 }
-func TestDatabase_parseMySQLHeader(t *testing.T) {
+func TestDatabase_parseMariaDBHeader(t *testing.T) {
 	type args struct {
 		line string
 	}
@@ -26,54 +26,52 @@ func TestDatabase_parseMySQLHeader(t *testing.T) {
 		{
 			name: "time",
 			args: args{
-				line: "# Time: 2021-03-23T14:38:32.489447Z",
+				line: "# Time: 210323 11:31:57",
 			},
 			refQuery: query.Query{
-				Time: parseTime("2021-03-23T14:38:32.489447Z"),
+				Time: parseTime("210323 11:31:57"),
 			},
 		},
 		{
-			name: "user, host, id",
+			name: "user, host",
 			args: args{
-				line: "# User@Host: root[root] @  [172.18.0.1]  Id:     9",
+				line: "# User@Host: hugo[hugo] @  [172.18.0.3]",
 			},
 			refQuery: query.Query{
-				User: "root",
-				Host: "172.18.0.1",
-				ID:   9,
+				User: "hugo",
+				Host: "172.18.0.3",
 			},
 		},
 		{
-			name: "query time, lock time, rows sent, rows examined, rows affected",
+			name: "id, schema", // QC_Hit is not parsed yet
 			args: args{
-				line: "# Query_time: 0.000328  Lock_time: 0.000013  Rows_sent: 1  Rows_examined: 1  Rows_affected: 0",
+				line: "# Thread_id: 12794  Schema:   QC_hit: No",
 			},
 			refQuery: query.Query{
-				QueryTime:    0.000328,
-				LockTime:     0.000013,
-				RowsSent:     1,
-				RowsExamined: 1,
+				ID:     12794,
+				Schema: "",
+			},
+		},
+		{
+			name: "query time, lock time, rows sent, rows examined",
+			args: args{
+				line: "# Query_time: 0.000035  Lock_time: 0.000000  Rows_sent: 0  Rows_examined: 0",
+			},
+			refQuery: query.Query{
+				QueryTime:    0.000035,
+				LockTime:     0.000000,
+				RowsSent:     0,
+				RowsExamined: 0,
+			},
+		},
+		{
+			name: "rows affected, bytes sent",
+			args: args{
+				line: "# Rows_affected: 0  Bytes_sent: 11",
+			},
+			refQuery: query.Query{
 				RowsAffected: 0,
-			},
-		},
-		{
-			name: "schema, last errno, killed",
-			args: args{
-				line: "# Schema: client-prod  Last_errno: 1  Killed: 2",
-			},
-			refQuery: query.Query{
-				Schema:    "client-prod",
-				LastErrNo: 1,
-				Killed:    2,
-			},
-		},
-		{
-			name: "bytes sent",
-			args: args{
-				line: "# Bytes_sent: 1337",
-			},
-			refQuery: query.Query{
-				BytesSent: 1337,
+				BytesSent:    11,
 			},
 		},
 	}
@@ -81,7 +79,7 @@ func TestDatabase_parseMySQLHeader(t *testing.T) {
 		db := New(nil)
 		t.Run(tt.name, func(t *testing.T) {
 			q := query.Query{}
-			db.parseMySQLHeader(tt.args.line, &q)
+			db.parseMariaDBHeader(tt.args.line, &q)
 			if q != tt.refQuery {
 				t.Errorf("got = %v, want %v", q, tt.refQuery)
 			}
@@ -97,16 +95,18 @@ func TestDatabase_ParseServerMeta(t *testing.T) {
 	}{
 		{
 			name: "parsable",
-			lines: []string{"/usr/sbin/mysqld, Version: 8.0.23 (MySQL Community Server - GPL). started with:",
-				"Tcp port: 3306  Unix socket: /var/run/mysqld/mysqld.sock",
-				"Time                 Id Command    Argument"},
+			lines: []string{
+				"/opt/bitnami/mariadb/sbin/mysqld, Version: 10.5.9-MariaDB (Source distribution). started with:",
+				"Tcp port: 3306  Unix socket: /opt/bitnami/mariadb/tmp/mysql.sock",
+				"Time		    Id Command	Argument",
+			},
 			refSrv: server.Server{
-				Binary:             "/usr/sbin/mysqld",
+				Binary:             "/opt/bitnami/mariadb/sbin/mysqld",
 				Port:               3306,
-				Socket:             "/var/run/mysqld/mysqld.sock",
-				Version:            "8.0.23",
-				VersionShort:       "8.0.2",
-				VersionDescription: "MySQL Community Server - GPL",
+				Socket:             "/opt/bitnami/mariadb/tmp/mysql.sock",
+				Version:            "10.5.9-MariaDB",
+				VersionShort:       "10.5.9",
+				VersionDescription: "Source distribution",
 			},
 		},
 		{
@@ -146,28 +146,27 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 		{
 			name: "testing",
 			bloc: []string{
-				"# Time: 2020-07-07T12:28:02.804900Z",
-				"# User@Host: api[api] @  [192.168.0.101]  Id: 5603761",
-				"# Schema: client-prod  Last_errno: 0  Killed: 0",
-				"# Query_time: 0.000089  Lock_time: 0.000000  Rows_sent: 0  Rows_examined: 0  Rows_affected: 0",
-				"# Bytes_sent: 1183",
-				"SET timestamp=1594124882;",
+				"# Time: 210323 11:31:57",
+				"# User@Host: hugo[hugo] @  [172.18.0.3]",
+				"# Thread_id: 12794  Schema:   QC_hit: No",
+				"# Query_time: 0.000035  Lock_time: 0.000000  Rows_sent: 0  Rows_examined: 0",
+				"# Rows_affected: 0  Bytes_sent: 11",
+				"SET timestamp=1616499117;",
+				"SET NAMES utf8mb4;",
 			},
 			refQuery: query.Query{
-				Time:         parseTime("2020-07-07T12:28:02.804900Z"),
-				User:         "api",
-				Host:         "192.168.0.101",
-				ID:           5603761,
-				Schema:       "client-prod",
-				LastErrNo:    0,
-				Killed:       0,
-				QueryTime:    0.000089,
+				Time:         parseTime("210323 11:31:57"),
+				User:         "hugo",
+				Host:         "172.18.0.3",
+				ID:           12794,
+				Schema:       "",
+				QueryTime:    0.000035,
 				LockTime:     0.000000,
 				RowsSent:     0,
 				RowsExamined: 0,
 				RowsAffected: 0,
-				BytesSent:    1183,
-				Query:        "SET timestamp=1594124882;",
+				BytesSent:    11,
+				Query:        "SET timestamp=1616499117;SET NAMES utf8mb4;",
 			},
 		},
 	}
