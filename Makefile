@@ -3,7 +3,7 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=slowql-digest
-BUILD_ROOT=./out/bin/
+BUILD_ROOT=./bin/
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
