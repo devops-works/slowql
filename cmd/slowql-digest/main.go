@@ -130,6 +130,15 @@ func main() {
 			if err != nil {
 				a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats")
 			}
+			stats, err = sortResults(stats, o.order, o.dec)
+			if err != nil {
+				a.logger.Errorf("cannot sort results: %s", err)
+				o.order = "random"
+				stats, err = sortResults(stats, o.order, o.dec)
+				if err != nil {
+					a.logger.Fatalf("cannot sort results: %s", err)
+				}
+			}
 			showResults(stats, o.order, o.top, o.dec, res.TotalDuration)
 			return
 		}
@@ -242,7 +251,7 @@ Fingerprint            : %s
 Schema                 : %s
 Min/Max/Mean time      : %s/%s/%s
 p50/p95                : %s/%s
-Concurrency            : %2.2f%%
+Concurrency            : %2.4f%%
 Standard deviation     : %s
 Cum Query Time         : %s
 Cum Lock Time          : %s
