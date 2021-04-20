@@ -4,7 +4,11 @@ import (
 	"crypto/md5"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
+
+	"github.com/montanaflynn/stats"
 )
 
 var regexeps []replacements
@@ -81,4 +85,47 @@ func init() {
 		// ... not implemented ...
 
 	}
+}
+
+// fsecsToDuration converts float seconds to time.Duration
+// Since we have float64 seconds durations
+// We first convert to µs (* 1e6) then to duration
+func fsecsToDuration(d float64) time.Duration {
+	return time.Duration(d*1e6) * time.Microsecond
+}
+
+func computeStats(res []statistics, realDuration time.Duration) ([]statistics, error) {
+	var err error
+	ffactor := 100.0 * float64(time.Second) / float64(realDuration)
+	for i := 0; i < len(res); i++ {
+
+		// Mean time
+		res[i].MeanTime = res[i].CumQueryTime / float64(res[i].Calls)
+
+		// Compute percentiles
+		var arr []float64
+		arr = append(arr, res[i].QueryTimes...)
+		sort.Slice(arr, func(i, j int) bool {
+			return arr[i] < arr[j]
+		})
+		res[i].P95Time, err = stats.Percentile(arr, 95)
+		if err != nil {
+			return nil, err
+		}
+		res[i].P50Time, err = stats.Percentile(arr, 50)
+		if err != nil {
+			return nil, err
+		}
+
+		// compute stddev
+		res[i].StddevTime, err = stats.StandardDeviation(arr)
+		if err != nil {
+			return nil, err
+		}
+
+		// compute concurrency
+		res[i].Concurrency = res[i].CumQueryTime * ffactor
+	}
+
+	return res, nil
 }

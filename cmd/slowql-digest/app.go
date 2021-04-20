@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
@@ -62,10 +61,21 @@ func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 		cur.Calls++
 		cur.CumBytesSent += q.BytesSent
 		cur.CumKilled += q.Killed
-		cur.CumLockTime += time.Duration(q.LockTime)
+		cur.CumLockTime += q.LockTime
 		cur.CumRowsExamined += q.RowsExamined
 		cur.CumRowsSent += q.RowsSent
-		s.CumQueryTime += time.Duration(q.QueryTime)
+		cur.CumQueryTime += q.QueryTime
+		cur.QueryTimes = append(cur.QueryTimes, q.QueryTime)
+
+		// update max time
+		if q.QueryTime > cur.MaxTime {
+			cur.MaxTime = q.QueryTime
+		}
+
+		// update min time
+		if q.QueryTime < cur.MinTime {
+			cur.MinTime = q.QueryTime
+		}
 
 		// update the entry in the map
 		a.res[s.Hash] = cur
@@ -74,10 +84,14 @@ func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 		s.Calls++
 		s.CumBytesSent = q.BytesSent
 		s.CumKilled = q.Killed
-		s.CumLockTime = time.Duration(q.LockTime)
+		s.CumLockTime = q.LockTime
 		s.CumRowsExamined = q.RowsExamined
 		s.CumRowsSent = q.RowsSent
-		s.CumQueryTime = time.Duration(q.QueryTime)
+		s.CumQueryTime = q.QueryTime
+		s.MinTime = q.QueryTime
+		s.MaxTime = q.QueryTime
+		s.MeanTime = q.QueryTime
+		s.QueryTimes = append(s.QueryTimes, q.QueryTime)
 
 		// getting those values is done only once: same hash == same fingerprint & schema
 		s.Schema = q.Schema

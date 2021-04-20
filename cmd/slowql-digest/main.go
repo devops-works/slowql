@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudflare/cfssl/log"
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
 	. "github.com/logrusorgru/aurora"
@@ -46,22 +45,24 @@ type statistics struct {
 	Calls           int
 	CumErrored      int
 	CumKilled       int
-	CumQueryTime    time.Duration
-	CumLockTime     time.Duration
+	CumQueryTime    float64
+	CumLockTime     float64
 	CumRowsSent     int
 	CumRowsExamined int
 	CumBytesSent    int
 	Concurrency     float64
-	MinTime         time.Duration
-	MaxTime         time.Duration
-	MeanTime        time.Duration
-	P50Time         time.Duration
-	P95Time         time.Duration
-	StddevTime      time.Duration
+	MinTime         float64
+	MaxTime         float64
+	MeanTime        float64
+	P50Time         float64
+	P95Time         float64
+	StddevTime      float64
+	QueryTimes      []float64
 }
 
 var orders = []string{"random", "calls", "bytes_sent", "query_time", "lock_time",
-	"rows_sent", "rows_examined", "killed"}
+	"rows_sent", "rows_examined", "killed", "min_time", "max_time", "mean_time",
+	"p50", "p90", "concurrency"}
 
 func main() {
 	var o options
@@ -116,11 +117,16 @@ func main() {
 				}
 			}
 			a.logger.Infof("cache has timestamp: %s", res.Date)
-			showResults(cacheResults, o.order, o.top)
+			stats, err := computeStats(cacheResults, res.TotalDuration)
+			if err != nil {
+				a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats")
+			}
+			showResults(stats, o.order, o.top, o.dec, res.TotalDuration)
 			return
 		}
 		a.logger.Info("cache will not be used")
 	}
+
 	a.fd, err = os.Open(o.logfile)
 	if err != nil {
 		a.logger.Fatalf("cannot open log file: %s", err)
@@ -143,6 +149,8 @@ func main() {
 
 	var q query.Query
 	var wg sync.WaitGroup
+	firstPass := true
+	var realStart, realEnd time.Time
 	a.p = slowql.NewParser(a.kind, a.fd)
 	a.logger.Debug("slowql parser created")
 	a.logger.Debug("query analysis started")
@@ -153,6 +161,11 @@ func main() {
 			a.logger.Debug("no more queries, breaking for loop")
 			break
 		}
+		if firstPass {
+			realStart = q.Time
+			firstPass = false
+		}
+		realEnd = q.Time
 		a.queriesNumber++
 		wg.Add(1)
 		go a.digest(q, &wg)
@@ -168,6 +181,12 @@ func main() {
 	for _, val := range a.res {
 		res = append(res, val)
 	}
+
+	realDuration := realEnd.Sub(realStart)
+	res, err = computeStats(res, realDuration)
+	if err != nil {
+		a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats")
+	}
 	res, err = sortResults(res, o.order, o.dec)
 	if err != nil {
 		a.logger.Errorf("cannot sort results: %s", err)
@@ -178,23 +197,30 @@ func main() {
 		}
 	}
 
-	showResults(res, o.order, o.top)
+	fmt.Printf("real duration: %s\n", realDuration)
+	showResults(res, o.order, o.top, o.dec, realDuration)
+
 	if !o.nocache {
-		log.Info("saving results in cache file")
+		a.logger.Info("saving results in cache file")
 		cache := results{
-			File: o.logfile,
-			Date: time.Now(),
-			Data: res,
+			File:          o.logfile,
+			Date:          time.Now(),
+			TotalDuration: realDuration,
+			Data:          res,
 		}
 		if err := saveCache(cache); err != nil {
-			log.Errorf("cannot save results in cache file: %s", err)
+			a.logger.Errorf("cannot save results in cache file: %s", err)
 		}
 	}
 	a.logger.Debug("end of program, exiting")
 }
 
-func showResults(res []statistics, order string, count int) {
-	fmt.Printf("\nSorted by: %s\n", Bold(order))
+func showResults(res []statistics, order string, count int, dec bool, realDuration time.Duration) {
+	howTo := "increasing"
+	if dec {
+		howTo = "decreasing"
+	}
+	fmt.Printf("\nSorted by: %s, %s\n", Bold(order), Bold(howTo))
 	fmt.Printf("Showing top %d queries\n", Bold(count))
 	for i := 0; i < len(res); i++ {
 		if count == 0 {
@@ -203,16 +229,19 @@ func showResults(res []statistics, order string, count int) {
 
 		fmt.Printf(`
 %s%d
-Calls:             %d
-Hash:              %s
-Fingerprint:       %s
-Schema:            %s
-Cum Bytes sent:    %d
-Cum Rows Examined: %d
-Cum Rows Sent:     %d
-Cum Killed:        %d
-Cum Lock Time:     %s
-Cum Query Time:    %s
+Calls:                  %d
+Hash:                   %s
+Fingerprint:            %s
+Schema:                 %s
+Min/Max/Mean time:      %s/%s/%s
+p50/p95:                %s/%s
+Concurrency:            %2.2f%%
+Standard deviation:     %s
+Cum Query Time:         %s
+Cum Lock Time:          %s
+Cum Bytes sent:         %d
+Cum Rows Examined/Sent: %d/%d
+Cum Killed:             %d
 			`,
 			Bold(Underline("Query #")),
 			Bold(Underline(i+1)),
@@ -220,12 +249,19 @@ Cum Query Time:    %s
 			res[i].Hash,
 			res[i].Fingerprint,
 			res[i].Schema,
+			fsecsToDuration(res[i].MinTime),
+			fsecsToDuration(res[i].MaxTime),
+			fsecsToDuration(res[i].MeanTime),
+			fsecsToDuration(res[i].P50Time),
+			fsecsToDuration(res[i].P95Time),
+			res[i].Concurrency,
+			fsecsToDuration(res[i].StddevTime),
+			fsecsToDuration(res[i].CumQueryTime),
+			fsecsToDuration(res[i].CumLockTime),
 			res[i].CumBytesSent,
 			res[i].CumRowsExamined,
 			res[i].CumRowsSent,
 			res[i].CumKilled,
-			res[i].CumLockTime,
-			res[i].CumQueryTime,
 		)
 
 		count--
@@ -251,7 +287,6 @@ func lineCounter(r io.Reader) (int, error) {
 }
 
 func sortResults(s []statistics, order string, dec bool) ([]statistics, error) {
-
 	switch order {
 	case "random":
 		break
@@ -282,6 +317,30 @@ func sortResults(s []statistics, order string, dec bool) ([]statistics, error) {
 	case "killed":
 		sort.SliceStable(s, func(i, j int) bool {
 			return s[i].CumKilled < s[j].CumKilled
+		})
+	case "min_time":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].MinTime < s[j].MinTime
+		})
+	case "max_time":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].MaxTime < s[j].MaxTime
+		})
+	case "mean_time":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].MeanTime < s[j].MeanTime
+		})
+	case "p50", "P50":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].P50Time < s[j].P50Time
+		})
+	case "p95", "P95":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].P95Time < s[j].P95Time
+		})
+	case "concurrency":
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].Concurrency < s[j].Concurrency
 		})
 	default:
 		return nil, errors.New("unknown order, using 'random'")

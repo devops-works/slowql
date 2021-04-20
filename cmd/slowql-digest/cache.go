@@ -9,9 +9,10 @@ import (
 
 // results is the datastrcucture that will be saved on disk
 type results struct {
-	File string       `json:"file"`
-	Date time.Time    `json:"date"`
-	Data []statistics `json:"data"`
+	File          string        `json:"file"`
+	Date          time.Time     `json:"date"`
+	TotalDuration time.Duration `json:"total_duration"`
+	Data          []statistics  `json:"data"`
 }
 
 // findCache looks a for a cache file stored in the same directory than the slow
