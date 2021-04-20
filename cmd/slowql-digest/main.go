@@ -68,9 +68,9 @@ func main() {
 	var o options
 	flag.StringVar(&o.logfile, "f", "", "Slow query log file to digest "+Red("(required)").String())
 	flag.StringVar(&o.loglevel, "l", "info", "Log level")
-	flag.StringVar(&o.kind, "k", "", "Database kind "+Red("(required)").String())
+	flag.StringVar(&o.kind, "k", "", "Database kind. Use ? to see all the available values  "+Red("(required)").String())
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")
-	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. use ? to see all the available values")
+	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. Use ? to see all the available values")
 	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
 	flag.BoolVar(&o.nocache, "no-cache", false, "Do not use cache, if cache exists")
 	flag.Parse()
@@ -78,6 +78,15 @@ func main() {
 	if o.order == "?" {
 		fmt.Println("Available values:")
 		for _, val := range orders {
+			fmt.Printf("    %s\n", val)
+		}
+		return
+	}
+
+	dbKinds := []string{"mysql", "mariadb"}
+	if o.kind == "?" {
+		fmt.Println("Available values:")
+		for _, val := range dbKinds {
 			fmt.Printf("    %s\n", val)
 		}
 		return
