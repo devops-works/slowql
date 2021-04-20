@@ -197,9 +197,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("real duration: %s\n", realDuration)
 	showResults(res, o.order, o.top, o.dec, realDuration)
-
 	if !o.nocache {
 		a.logger.Info("saving results in cache file")
 		cache := results{
