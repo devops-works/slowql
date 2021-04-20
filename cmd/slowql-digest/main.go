@@ -98,14 +98,14 @@ func main() {
 
 	// if we want to use cache and the cache file exists...
 	if !o.nocache && findCache(o.logfile) {
-		a.logger.Info("cache found. Trying to restore it")
+		a.logger.Infof("cache found: %s. Trying to restore it", o.logfile+".cache")
 		// ...we try to restore it
 		res, err := restoreCache(o.logfile)
 		if err != nil {
 			a.logger.Errorf("cannot restore cache: %s", err)
 			a.logger.Warn("continuing without cache")
 		} else {
-			a.logger.Info("cache restored")
+			a.logger.Infof("%s restored", o.logfile+".cache")
 			cacheResults, err := sortResults(res.Data, o.order, o.dec)
 			if err != nil {
 				a.logger.Errorf("cannot sort results: %s", err)
