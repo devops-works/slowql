@@ -66,9 +66,9 @@ var orders = []string{"random", "calls", "bytes_sent", "query_time", "lock_time"
 
 func main() {
 	var o options
-	flag.StringVar(&o.logfile, "f", "", "Slow query log file to digest")
+	flag.StringVar(&o.logfile, "f", "", "Slow query log file to digest "+Red("(required)").String())
 	flag.StringVar(&o.loglevel, "l", "info", "Log level")
-	flag.StringVar(&o.kind, "k", "", "Database kind")
+	flag.StringVar(&o.kind, "k", "", "Database kind "+Red("(required)").String())
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")
 	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. use ? to see all the available values")
 	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
