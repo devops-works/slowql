@@ -179,8 +179,8 @@ func main() {
 	}
 
 	showResults(res, o.order, o.top)
-	log.Info("saving results in cache file")
 	if !o.nocache {
+		log.Info("saving results in cache file")
 		cache := results{
 			File: o.logfile,
 			Date: time.Now(),
