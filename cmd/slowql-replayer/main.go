@@ -444,7 +444,7 @@ func (r *results) errorsCollector(errors chan error, showErrors bool) {
 	}
 }
 
-// getReferences returns the reference log fuartion and the number of queries
+// getReferences returns the reference log duration and the number of queries
 func getReferences(k slowql.Kind, f string) (int, time.Duration, error) {
 	var queriesCounter int
 
