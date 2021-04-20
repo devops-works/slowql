@@ -236,19 +236,19 @@ func showResults(res []statistics, order string, count int, dec bool, realDurati
 
 		fmt.Printf(`
 %s%d
-Calls:                  %d
-Hash:                   %s
-Fingerprint:            %s
-Schema:                 %s
-Min/Max/Mean time:      %s/%s/%s
-p50/p95:                %s/%s
-Concurrency:            %2.2f%%
-Standard deviation:     %s
-Cum Query Time:         %s
-Cum Lock Time:          %s
-Cum Bytes sent:         %d
-Cum Rows Examined/Sent: %d/%d
-Cum Killed:             %d
+Calls                  : %d
+Hash                   : %s
+Fingerprint            : %s
+Schema                 : %s
+Min/Max/Mean time      : %s/%s/%s
+p50/p95                : %s/%s
+Concurrency            : %2.2f%%
+Standard deviation     : %s
+Cum Query Time         : %s
+Cum Lock Time          : %s
+Cum Bytes sent         : %d
+Cum Rows Examined/Sent : %d/%d
+Cum Killed             : %d
 			`,
 			Bold(Underline("Query #")),
 			Bold(Underline(i+1)),
