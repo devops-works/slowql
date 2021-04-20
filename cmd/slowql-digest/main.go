@@ -60,9 +60,8 @@ type statistics struct {
 	QueryTimes      []float64
 }
 
-var orders = []string{"random", "calls", "bytes_sent", "query_time", "lock_time",
-	"rows_sent", "rows_examined", "killed", "min_time", "max_time", "mean_time",
-	"p50", "p90", "concurrency"}
+var orders = []string{"bytes_sent", "calls", "concurrency", "killed", "lock_time",
+	"max_time", "mean_time", "min_time", "p50", "p90", "query_time", "random", "rows_examined", "rows_sent"}
 
 func main() {
 	var o options
@@ -83,7 +82,7 @@ func main() {
 		return
 	}
 
-	dbKinds := []string{"mysql", "mariadb"}
+	dbKinds := []string{"mariadb", "mysql", "pxc"}
 	if o.kind == "?" {
 		fmt.Println("Available values:")
 		for _, val := range dbKinds {
