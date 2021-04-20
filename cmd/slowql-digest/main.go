@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudflare/cfssl/log"
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
 	. "github.com/logrusorgru/aurora"
@@ -35,6 +36,7 @@ type options struct {
 	top      int
 	order    string
 	dec      bool
+	nocache  bool
 }
 
 type statistics struct {
@@ -69,6 +71,7 @@ func main() {
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")
 	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. use ? to see all the available values")
 	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
+	flag.BoolVar(&o.nocache, "no-cache", false, "Do not use cache, if cache exists")
 	flag.Parse()
 
 	if o.order == "?" {
@@ -93,6 +96,31 @@ func main() {
 		logrus.Fatalf("cannot create app: %s", err)
 	}
 
+	// if we want to use cache and the cache file exists...
+	if !o.nocache && findCache(o.logfile) {
+		a.logger.Info("cache found. Trying to restore it")
+		// ...we try to restore it
+		res, err := restoreCache(o.logfile)
+		if err != nil {
+			a.logger.Errorf("cannot restore cache: %s", err)
+			a.logger.Warn("continuing without cache")
+		} else {
+			a.logger.Info("cache restored")
+			cacheResults, err := sortResults(res.Data, o.order, o.dec)
+			if err != nil {
+				a.logger.Errorf("cannot sort results: %s", err)
+				o.order = "random"
+				cacheResults, err = sortResults(cacheResults, o.order, o.dec)
+				if err != nil {
+					a.logger.Fatalf("cannot sort results: %s", err)
+				}
+			}
+			a.logger.Infof("cache has timestamp: %s", res.Date)
+			showResults(cacheResults, o.order, o.top)
+			return
+		}
+		a.logger.Info("cache will not be used")
+	}
 	a.fd, err = os.Open(o.logfile)
 	if err != nil {
 		a.logger.Fatalf("cannot open log file: %s", err)
@@ -137,18 +165,31 @@ func main() {
 	a.logger.Infof("found %d different queries hashs", len(a.res))
 
 	var res []statistics
-	res, err = sortResults(a.res, o.order, o.dec)
+	for _, val := range a.res {
+		res = append(res, val)
+	}
+	res, err = sortResults(res, o.order, o.dec)
 	if err != nil {
 		a.logger.Errorf("cannot sort results: %s", err)
 		o.order = "random"
-		res, err = sortResults(a.res, o.order, o.dec)
+		res, err = sortResults(res, o.order, o.dec)
 		if err != nil {
 			a.logger.Fatalf("cannot sort results: %s", err)
 		}
 	}
 
 	showResults(res, o.order, o.top)
-
+	log.Info("saving results in cache file")
+	if !o.nocache {
+		cache := results{
+			File: o.logfile,
+			Date: time.Now(),
+			Data: res,
+		}
+		if err := saveCache(cache); err != nil {
+			log.Errorf("cannot save results in cache file: %s", err)
+		}
+	}
 	a.logger.Debug("end of program, exiting")
 }
 
@@ -209,11 +250,7 @@ func lineCounter(r io.Reader) (int, error) {
 	}
 }
 
-func sortResults(res map[string]statistics, order string, dec bool) ([]statistics, error) {
-	var s []statistics
-	for _, val := range res {
-		s = append(s, val)
-	}
+func sortResults(s []statistics, order string, dec bool) ([]statistics, error) {
 
 	switch order {
 	case "random":
