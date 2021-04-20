@@ -1,4 +1,3 @@
-
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
@@ -16,12 +15,10 @@ all: help
 
 ## Build:
 digest: ## Build slowql-digest
-	mkdir -p ./out/bin
 	GO111MODULE=on $(GOCMD) build -o $(BUILD_ROOT)digest ./cmd/slowql-digest/
 	@echo "${GREEN}[*]${RESET} digest successfully built in ${YELLOW}${BUILD_ROOT}digest${RESET}"
 
 replayer: ## Build slowql-replayer
-	mkdir -p ./out/bin
 	GO111MODULE=on $(GOCMD) build -o $(BUILD_ROOT)replayer ./cmd/slowql-replayer/
 	@echo "${GREEN}[*]${RESET} replayer successfully built in ${YELLOW}${BUILD_ROOT}replayer${RESET}"
 

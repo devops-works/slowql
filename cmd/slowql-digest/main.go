@@ -40,24 +40,24 @@ type options struct {
 }
 
 type statistics struct {
-	hash            string
-	fingerprint     string
-	schema          string
-	calls           int
-	cumErrored      int
-	cumKilled       int
-	cumQueryTime    time.Duration
-	cumLockTime     time.Duration
-	cumRowsSent     int
-	cumRowsExamined int
-	cumBytesSent    int
-	concurrency     float64
-	minTime         time.Duration
-	maxTime         time.Duration
-	meanTime        time.Duration
-	p50Time         time.Duration
-	p95Time         time.Duration
-	stddevTime      time.Duration
+	Hash            string
+	Fingerprint     string
+	Schema          string
+	Calls           int
+	CumErrored      int
+	CumKilled       int
+	CumQueryTime    time.Duration
+	CumLockTime     time.Duration
+	CumRowsSent     int
+	CumRowsExamined int
+	CumBytesSent    int
+	Concurrency     float64
+	MinTime         time.Duration
+	MaxTime         time.Duration
+	MeanTime        time.Duration
+	P50Time         time.Duration
+	P95Time         time.Duration
+	StddevTime      time.Duration
 }
 
 var orders = []string{"random", "calls", "bytes_sent", "query_time", "lock_time",
@@ -216,16 +216,16 @@ Cum Query Time:    %s
 			`,
 			Bold(Underline("Query #")),
 			Bold(Underline(i+1)),
-			res[i].calls,
-			res[i].hash,
-			res[i].fingerprint,
-			res[i].schema,
-			res[i].cumBytesSent,
-			res[i].cumRowsExamined,
-			res[i].cumRowsSent,
-			res[i].cumKilled,
-			res[i].cumLockTime,
-			res[i].cumQueryTime,
+			res[i].Calls,
+			res[i].Hash,
+			res[i].Fingerprint,
+			res[i].Schema,
+			res[i].CumBytesSent,
+			res[i].CumRowsExamined,
+			res[i].CumRowsSent,
+			res[i].CumKilled,
+			res[i].CumLockTime,
+			res[i].CumQueryTime,
 		)
 
 		count--
@@ -257,31 +257,31 @@ func sortResults(s []statistics, order string, dec bool) ([]statistics, error) {
 		break
 	case "calls":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].calls < s[j].calls
+			return s[i].Calls < s[j].Calls
 		})
 	case "bytes_sent":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].cumBytesSent < s[j].cumBytesSent
+			return s[i].CumBytesSent < s[j].CumBytesSent
 		})
 	case "query_time":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].cumQueryTime < s[j].cumQueryTime
+			return s[i].CumQueryTime < s[j].CumQueryTime
 		})
 	case "lock_time":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].cumLockTime < s[j].cumLockTime
+			return s[i].CumLockTime < s[j].CumLockTime
 		})
 	case "rows_sent":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].cumRowsSent < s[j].cumRowsSent
+			return s[i].CumRowsSent < s[j].CumRowsSent
 		})
 	case "rows_examined":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].cumRowsExamined < s[j].cumRowsExamined
+			return s[i].CumRowsExamined < s[j].CumRowsExamined
 		})
 	case "killed":
 		sort.SliceStable(s, func(i, j int) bool {
-			return s[i].cumKilled < s[j].cumKilled
+			return s[i].CumKilled < s[j].CumKilled
 		})
 	default:
 		return nil, errors.New("unknown order, using 'random'")

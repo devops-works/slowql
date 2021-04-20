@@ -53,37 +53,37 @@ func newApp(loglevel, kind string) (*app, error) {
 func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	var s statistics
-	s.fingerprint = fingerprint(q.Query)
-	s.hash = hash(s.fingerprint)
+	s.Fingerprint = fingerprint(q.Query)
+	s.Hash = hash(s.Fingerprint)
 
 	a.mu.Lock()
-	if cur, ok := a.res[s.hash]; ok {
+	if cur, ok := a.res[s.Hash]; ok {
 		// there is already results
-		cur.calls++
-		cur.cumBytesSent += q.BytesSent
-		cur.cumKilled += q.Killed
-		cur.cumLockTime += time.Duration(q.LockTime)
-		cur.cumRowsExamined += q.RowsExamined
-		cur.cumRowsSent += q.RowsSent
-		s.cumQueryTime += time.Duration(q.QueryTime)
+		cur.Calls++
+		cur.CumBytesSent += q.BytesSent
+		cur.CumKilled += q.Killed
+		cur.CumLockTime += time.Duration(q.LockTime)
+		cur.CumRowsExamined += q.RowsExamined
+		cur.CumRowsSent += q.RowsSent
+		s.CumQueryTime += time.Duration(q.QueryTime)
 
 		// update the entry in the map
-		a.res[s.hash] = cur
+		a.res[s.Hash] = cur
 	} else {
 		// it is the first time this hash appears
-		s.calls++
-		s.cumBytesSent = q.BytesSent
-		s.cumKilled = q.Killed
-		s.cumLockTime = time.Duration(q.LockTime)
-		s.cumRowsExamined = q.RowsExamined
-		s.cumRowsSent = q.RowsSent
-		s.cumQueryTime = time.Duration(q.QueryTime)
+		s.Calls++
+		s.CumBytesSent = q.BytesSent
+		s.CumKilled = q.Killed
+		s.CumLockTime = time.Duration(q.LockTime)
+		s.CumRowsExamined = q.RowsExamined
+		s.CumRowsSent = q.RowsSent
+		s.CumQueryTime = time.Duration(q.QueryTime)
 
 		// getting those values is done only once: same hash == same fingerprint & schema
-		s.schema = q.Schema
+		s.Schema = q.Schema
 
 		// add the entry to the map
-		a.res[s.hash] = s
+		a.res[s.Hash] = s
 	}
 	a.mu.Unlock()
 
