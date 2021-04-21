@@ -2,28 +2,30 @@ name: Release Go project
 
 on:
   push:
+    branches:
+      - 'master'
     tags:
-      - "*"
-
-builds:
-  - main: ./cmd/slowql-digest/
-    id: "digest"
-    binary: digest
-    goos:
-      - linux
-      - darwin
-      - windows
-
-  - main: ./cmd/slowql-replayer/
-    id: "replayer"
-    binary: replayer
-    goos:
-      - linux
-      - darwin
-      - windows
+      - 'v*'
+  pull_request:
 
 jobs:
   build:
+    - main: ./cmd/slowql-digest/
+      id: "digest"
+      binary: digest_{{ .Version }}_{{ .OS }}_{{ .Arch }}
+      goos:
+        - linux
+        - darwin
+        - windows
+  
+    - main: ./cmd/slowql-replayer/
+      id: "replayer"
+      binary: replayer_{{ .Version }}_{{ .OS }}_{{ .Arch }}
+      goos:
+        - linux
+        - darwin
+        - windows
+
     name: GoReleaser build
     runs-on: ubuntu-latest
 
