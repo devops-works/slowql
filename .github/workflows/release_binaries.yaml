@@ -26,8 +26,8 @@ jobs:
         - darwin
         - windows
 
-    name: GoReleaser build
-    runs-on: ubuntu-latest
+  name: GoReleaser build
+  runs-on: ubuntu-latest
 
   steps:
     - name: Check out code into the Go module directory
