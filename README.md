@@ -66,7 +66,7 @@ Running the example given in cmd/ without any `fmt.Printf` against a 292MB slow 
 parsed 278077 queries in 8.099622786s
 ```
 
-which is approx. **34760 queries/second**.
+which is approx. **34760 queries/second** (Intel i5-8250U (8) @ 3.400GHz).
 
 ## Associated tools
 
@@ -85,7 +85,6 @@ Not all kind of slow query logs have been tested yet:
 - [X] MariaDB
 - [ ] Percona-db
 - [X] Percona-cluster (pxc)
-- [ ] MongoDB
 - [ ] PostgreSQL
 
 ### Internal

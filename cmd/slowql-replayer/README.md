@@ -16,9 +16,13 @@ $ go install github.com/devops-works/slowql/cmd/slowql-replayer
 
 ```
 $ git clone https://github.com/devops-works/slowql
-$ cd slowql/cmd/slowql-replayer
-$ make build
+$ cd slowql/
+$ make replayer
 ```
+
+A binary called `replayer` will be created at the root of the repo, under `bin/`.
+
+(`go` is required!)
 
 ### By downloading the pre-built binary
 
