@@ -9,7 +9,6 @@ A slow query logs parser in Golang.
   - [Associated tools](#associated-tools)
   - [Notes](#notes)
     - [Tested databases](#tested-databases)
-    - [Internal](#internal)
   - [Contributing](#contributing)
   - [License](#license)
 
