@@ -1,7 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"time"
@@ -12,6 +16,7 @@ type results struct {
 	File          string        `json:"file"`
 	Date          time.Time     `json:"date"`
 	TotalDuration time.Duration `json:"total_duration"`
+	Hash          string        `json:"hash"`
 	Data          []statistics  `json:"data"`
 }
 
@@ -24,7 +29,8 @@ func findCache(f string) bool {
 	return true
 }
 
-// restoreCache reads the cache and returns its contents
+// restoreCache reads the cache and returns its contents if the SHA-256 of the
+// file and the one stored in the cache match
 func restoreCache(f string) (results, error) {
 	var r results
 	cache, err := os.Open(f + ".cache")
@@ -42,11 +48,25 @@ func restoreCache(f string) (results, error) {
 		return r, err
 	}
 
+	hash, err := getSha256(f)
+	if err != nil {
+		return r, err
+	}
+
+	if hash != r.Hash {
+		return r, errors.New("hashes does not match, log file must have changed since cache creation")
+	}
 	return r, nil
 }
 
 // saveCache saves a cache in the same directory than the slow query log
 func saveCache(r results) error {
+	var err error
+	r.Hash, err = getSha256(r.File)
+	if err != nil {
+		return err
+	}
+
 	file, err := json.Marshal(r)
 	if err != nil {
 		return err
@@ -57,4 +77,20 @@ func saveCache(r results) error {
 	}
 
 	return nil
+}
+
+// getSha256 returns the hash of a file
+func getSha256(f string) (string, error) {
+	fd, err := os.Open(f)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, fd); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
