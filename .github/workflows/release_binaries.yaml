@@ -10,21 +10,9 @@ on:
 
 jobs:
   build:
-    - main: ./cmd/slowql-digest/
-      id: "digest"
-      binary: digest_{{ .Version }}_{{ .OS }}_{{ .Arch }}
-      goos:
-        - linux
-        - darwin
-        - windows
-  
-    - main: ./cmd/slowql-replayer/
-      id: "replayer"
-      binary: replayer_{{ .Version }}_{{ .OS }}_{{ .Arch }}
-      goos:
-        - linux
-        - darwin
-        - windows
+    main:
+      - ./cmd/slowql-digest/
+      - ./cmd/slowql-replayer/
 
     name: GoReleaser build
     runs-on: ubuntu-latest
