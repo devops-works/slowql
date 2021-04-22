@@ -1,3 +1,7 @@
+// Package slowql provides everything needed to parse slow query logs from
+// different databases (such as MySQL, MariaDB).
+// Along to a parser, it proposes a simple API with few functions that allow
+// you to get everything needed to compute your slow queries.
 package slowql
 
 import (
@@ -6,80 +10,110 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eze-kiel/dbg"
+	"github.com/devops-works/slowql/database/mariadb"
+	"github.com/devops-works/slowql/database/mysql"
+	"github.com/devops-works/slowql/query"
+	"github.com/devops-works/slowql/server"
 	"github.com/sirupsen/logrus"
 )
 
+// Kind is a database kind
+type Kind int
+
+const (
+	// Unknown type
+	Unknown Kind = iota
+	// MySQL type
+	MySQL
+	// MariaDB type
+	MariaDB
+	// PXC type
+	PXC
+)
+
+// Database is the parser interface
+type Database interface {
+	// // GetNext returns the next query of the parser
+	// GetNext() Query
+	// // GetServerMeta returns informations about the SQL server in usage
+	// GetServerMeta() Server
+	ParseBlocs(rawBlocs chan []string)
+	ParseServerMeta(chan []string)
+	GetServerMeta() server.Server
+}
+
+// Parser holds a slowql parser
 type Parser struct {
-	Source    io.Reader
-	StackSize int
-	stack     chan Query
-	rawBlocs  chan []string
-	scanner   bufio.Scanner
+	db          Database
+	waitingList chan query.Query
+	rawBlocs    chan []string
+	servermeta  chan []string
 }
 
-// Query contains query informations
-type Query struct {
-	Time         time.Time
-	User         string
-	Host         string
-	IP           string
-	ID           int
-	QueryTime    time.Time
-	LockTime     time.Time
-	RowsSent     int
-	RowsExamined int
-	Timestamp    time.Time
-	Query        string
-}
-
-// GetNext returns the next query
-func (p Parser) GetNext() (Query, error) {
-	var q Query
-
-	select {
-	case q := <-p.stack:
-		return q, nil
-	default:
-		return q, io.EOF
-	}
-}
-
-// NewParser creates the stack channel and launches background goroutines
-func NewParser(r io.Reader) *Parser {
+// NewParser returns a new parser depending on the desired kind
+func NewParser(k Kind, r io.Reader) Parser {
 	var p Parser
 
-	p.StackSize = 1024
-	p.Source = r
-	p.scanner = *bufio.NewScanner(r)
+	p.rawBlocs = make(chan []string, 4096)
+	p.servermeta = make(chan []string)
+	p.waitingList = make(chan query.Query, 4096)
 
-	p.stack = make(chan Query, p.StackSize)
-	p.rawBlocs = make(chan []string, p.StackSize)
+	go scan(*bufio.NewScanner(r), p.rawBlocs, p.servermeta)
 
-	go p.consume()
-	go p.scan()
+	switch k {
+	case MySQL, PXC:
+		p.db = mysql.New(p.waitingList)
+	case MariaDB:
+		p.db = mariadb.New(p.waitingList)
+	}
 
-	return &p
+	p.db.ParseServerMeta(p.servermeta)
+	go p.db.ParseBlocs(p.rawBlocs)
+
+	// This is gross but we are sure that some queries will be already parsed at
+	// when the user will call the package's functions
+	time.Sleep(10 * time.Millisecond)
+	return p
 }
 
-// scan reads the source line by line, and send those lines to the parser one
-// after each other
-func (p *Parser) scan() {
+// GetNext returns the next query in line
+func (p *Parser) GetNext() query.Query {
+	var q query.Query
+	select {
+	case q = <-p.waitingList:
+		return q
+	case <-time.After(2 * time.Second):
+		close(p.waitingList)
+	}
+	return q
+}
+
+// GetServerMeta returns server meta information
+func (p *Parser) GetServerMeta() server.Server {
+	return p.db.GetServerMeta()
+}
+
+func scan(s bufio.Scanner, rawBlocs, servermeta chan []string) {
 	var bloc []string
 	inHeader, inQuery := false, false
 
-	for p.scanner.Scan() {
-		line := p.scanner.Text()
+	// Parse the server informations
+	var lines []string
+	for i := 0; i < 3; i++ {
+		s.Scan()
+		lines = append(lines, s.Text())
+	}
+	servermeta <- lines
 
+	for s.Scan() {
+		line := s.Text()
 		// Drop useless lines
-		if p.scanner.Text()[0] == '#' && strings.Contains(p.scanner.Text(), "Quit;") {
+		if strings.Contains(s.Text(), "SET timestamp") {
 			continue
 		}
 
-		/*
-			This big if/else statement detects if the curernt line in a header
-			or a request, and if it belongs to the same bloc or not
-		*/
+		// This big if/else statement detects if the curernt line in a header
+		// or a request, and if it belongs to the same bloc or not
 		// In header
 		if strings.HasPrefix(line, "#") {
 			inHeader = true
@@ -87,13 +121,10 @@ func (p *Parser) scan() {
 				// A new bloc is starting, we send the previous one if it is not
 				// the first one
 				inQuery = false
-				dbg.Point(len(bloc))
-				if len(bloc) != 0 {
-					p.rawBlocs <- bloc
+				if len(bloc) > 0 {
+					rawBlocs <- bloc
+					bloc = nil
 				}
-			} else {
-				// We are in the same header as before
-				bloc = append(bloc, line)
 			}
 		} else { // In request
 			inQuery = true
@@ -102,49 +133,17 @@ func (p *Parser) scan() {
 				// same bloc
 				inHeader = false
 			}
-			bloc = append(bloc, line)
 		}
+		bloc = append(bloc, line)
 	}
 
 	// In case of error, log it
-	if err := p.scanner.Err(); err != nil {
+	if err := s.Err(); err != nil {
 		logrus.Error(err)
 	}
 
-	logrus.Infof("all the file has been parsed")
-
 	// Send the last bloc
-	p.rawBlocs <- bloc
+	rawBlocs <- bloc
 
-	close(p.rawBlocs)
-}
-
-// consume consumes the received line to extract the informations, and send the
-// Query object to the stack
-
-// TODO(ezekiel): here do excatly the same thing as before, so instead of sending
-// bloc, we could conusme the lines and return the query instead
-func (p *Parser) consume() {
-	select {
-	case bloc := <-p.rawBlocs:
-		dbg.Printf("received new bloc\n")
-		var q Query
-
-		// consume each line of the bloc
-		for _, line := range bloc {
-			if strings.HasPrefix(line, "#") {
-				q.parseHeader(line)
-			} else {
-				q.parseRequest(line)
-			}
-		}
-	}
-}
-
-func (q *Query) parseHeader(line string) {
-
-}
-
-func (q *Query) parseRequest(line string) {
-
+	close(rawBlocs)
 }

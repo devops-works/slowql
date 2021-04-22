@@ -2,3 +2,5 @@ samples/*
 *.log
 *.notes
 main
+/.vscode/
+bin/

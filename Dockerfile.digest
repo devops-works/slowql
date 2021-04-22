@@ -1,0 +1,17 @@
+# Build stage
+FROM devopsworks/golang-upx:1.16 AS builder
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
+COPY . /app
+WORKDIR /app
+RUN make digest && \
+    strip ./bin/digest && \
+    /usr/local/bin/upx -9 ./bin/digest
+
+# Run stage
+FROM gcr.io/distroless/base-debian10
+COPY --from=builder /app/bin/ /app
+WORKDIR /app
+ENTRYPOINT ["./digest"]
