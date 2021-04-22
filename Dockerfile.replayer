@@ -1,7 +1,6 @@
 # Build stage
 FROM devopsworks/golang-upx:1.15 AS builder
-ENV GO111MODULE=on \
-    CGO_ENABLED=0 \
+ENV CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64
 COPY . /app

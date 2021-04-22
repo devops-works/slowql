@@ -30,7 +30,7 @@ func New(qc chan query.Query) *Database {
 	return &p
 }
 
-func (db *Database) ParseBlocs(rawBlocs chan []string) {
+func (db *Database) ParseBlocks(rawBlocs chan []string) {
 	for {
 		select {
 		case bloc := <-rawBlocs:

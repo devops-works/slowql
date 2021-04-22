@@ -20,7 +20,7 @@ go get github.com/devops-works/slowql
 
 ## Basic usage
 
-To put in a nutshell, you can use it as follows:
+In a nutshell, you can use it as follows:
 
 ```go
 package main
@@ -57,7 +57,7 @@ func main() {
 }
 ```
 
-## Performances
+## Performance
 
 Running the example given in cmd/ without any `fmt.Printf` against a 292MB slow query logs from a MySQL database provides the following output:
 
@@ -84,7 +84,6 @@ Not all kind of slow query logs have been tested yet:
 - [X] MariaDB
 - [ ] Percona-db
 - [X] Percona-cluster (pxc)
-- [ ] PostgreSQL
 
 ## Contributing
 

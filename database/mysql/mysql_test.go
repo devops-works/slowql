@@ -137,7 +137,7 @@ func TestDatabase_ParseServerMeta(t *testing.T) {
 	}
 }
 
-func TestDatabase_ParseBlocs(t *testing.T) {
+func TestDatabase_ParseBlocks(t *testing.T) {
 	tests := []struct {
 		name     string
 		bloc     []string
@@ -177,7 +177,7 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 		db := New(qc)
 		t.Run(tt.name, func(t *testing.T) {
 			rawBlocs <- tt.bloc
-			go db.ParseBlocs(rawBlocs)
+			go db.ParseBlocks(rawBlocs)
 			q := <-db.WaitingList
 			if q != tt.refQuery {
 				t.Errorf("got = %v, want = %v", q, tt.refQuery)

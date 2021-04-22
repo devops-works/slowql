@@ -33,7 +33,7 @@ func main() {
 			break
 		}
 
-		// showQueries(q)
+		// showQuery(q)
 
 		count++
 	}
@@ -41,7 +41,7 @@ func main() {
 	fmt.Printf("\nparsed %d queries in %s\n", count, elapsed)
 }
 
-func showQueries(q query.Query) {
+func showQuery(q query.Query) {
 	fmt.Printf("Time: %s\nUser: %s\nHost: %s\nID: %d\nSchema: %s\nLast_errno: %d\nKilled: %d\nQuery_time: %f\nLock_time: %f\nRows_sent: %d\nRows_examined: %d\nRows_affected: %d\nBytes_sent: %d\nQuery: %s\n",
 		q.Time,
 		q.User,

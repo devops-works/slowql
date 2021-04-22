@@ -29,8 +29,8 @@ func New(qc chan query.Query) *Database {
 	return &p
 }
 
-// ParseBlocs parses query blocks
-func (db *Database) ParseBlocs(rawBlocs chan []string) {
+// ParseBlocks parses query blocks
+func (db *Database) ParseBlocks(rawBlocs chan []string) {
 	for {
 		select {
 		case bloc := <-rawBlocs:

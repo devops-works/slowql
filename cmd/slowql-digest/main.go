@@ -18,17 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type app struct {
-	mu             sync.Mutex
-	logger         *logrus.Logger
-	kind           slowql.Kind
-	fd             io.Reader
-	p              slowql.Parser
-	res            map[string]statistics
-	digestDuration time.Duration
-	queriesNumber  int
-}
-
 type options struct {
 	logfile  string
 	loglevel string
@@ -170,12 +159,13 @@ func main() {
 		if err != nil {
 			a.logger.Errorf("cannot open log file to count lines: %s", err)
 		}
+		defer fd.Close()
+
 		lines, err := lineCounter(fd)
 		if err != nil {
 			a.logger.Errorf("cannot count lines in log file: %s", err)
 		}
 		a.logger.Infof("log file has %d lines", lines)
-		fd.Close()
 	}
 
 	var q query.Query

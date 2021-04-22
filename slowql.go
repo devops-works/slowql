@@ -37,7 +37,7 @@ type Database interface {
 	// GetNext() Query
 	// // GetServerMeta returns informations about the SQL server in usage
 	// GetServerMeta() Server
-	ParseBlocs(rawBlocs chan []string)
+	ParseBlocks(rawBlocks chan []string)
 	ParseServerMeta(chan []string)
 	GetServerMeta() server.Server
 }
@@ -46,7 +46,7 @@ type Database interface {
 type Parser struct {
 	db          Database
 	waitingList chan query.Query
-	rawBlocs    chan []string
+	rawBlocks   chan []string
 	servermeta  chan []string
 }
 
@@ -54,11 +54,11 @@ type Parser struct {
 func NewParser(k Kind, r io.Reader) Parser {
 	var p Parser
 
-	p.rawBlocs = make(chan []string, 4096)
+	p.rawBlocks = make(chan []string, 4096)
 	p.servermeta = make(chan []string)
 	p.waitingList = make(chan query.Query, 4096)
 
-	go scan(*bufio.NewScanner(r), p.rawBlocs, p.servermeta)
+	go scan(*bufio.NewScanner(r), p.rawBlocks, p.servermeta)
 
 	switch k {
 	case MySQL, PXC:
@@ -68,7 +68,7 @@ func NewParser(k Kind, r io.Reader) Parser {
 	}
 
 	p.db.ParseServerMeta(p.servermeta)
-	go p.db.ParseBlocs(p.rawBlocs)
+	go p.db.ParseBlocks(p.rawBlocks)
 
 	// This is gross but we are sure that some queries will be already parsed at
 	// when the user will call the package's functions
@@ -93,7 +93,7 @@ func (p *Parser) GetServerMeta() server.Server {
 	return p.db.GetServerMeta()
 }
 
-func scan(s bufio.Scanner, rawBlocs, servermeta chan []string) {
+func scan(s bufio.Scanner, rawBlocks, servermeta chan []string) {
 	var bloc []string
 	inHeader, inQuery := false, false
 
@@ -122,7 +122,7 @@ func scan(s bufio.Scanner, rawBlocs, servermeta chan []string) {
 				// the first one
 				inQuery = false
 				if len(bloc) > 0 {
-					rawBlocs <- bloc
+					rawBlocks <- bloc
 					bloc = nil
 				}
 			}
@@ -143,7 +143,7 @@ func scan(s bufio.Scanner, rawBlocs, servermeta chan []string) {
 	}
 
 	// Send the last bloc
-	rawBlocs <- bloc
+	rawBlocks <- bloc
 
-	close(rawBlocs)
+	close(rawBlocks)
 }

@@ -2,12 +2,25 @@ package main
 
 import (
 	"errors"
+	"io"
 	"sync"
+	"time"
 
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
 	"github.com/sirupsen/logrus"
 )
+
+type app struct {
+	mu             sync.Mutex
+	logger         *logrus.Logger
+	kind           slowql.Kind
+	fd             io.Reader
+	p              slowql.Parser
+	res            map[string]statistics
+	digestDuration time.Duration
+	queriesNumber  int
+}
 
 func newApp(loglevel, kind string) (*app, error) {
 	var a app
@@ -56,6 +69,8 @@ func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 	s.Hash = hash(s.Fingerprint)
 
 	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	if cur, ok := a.res[s.Hash]; ok {
 		// there is already results
 		cur.Calls++
@@ -99,7 +114,6 @@ func (a *app) digest(q query.Query, wg *sync.WaitGroup) error {
 		// add the entry to the map
 		a.res[s.Hash] = s
 	}
-	a.mu.Unlock()
 
 	return nil
 }
