@@ -5,14 +5,13 @@ ENV GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64
 COPY . /app
-WORKDIR /app/cmd/slowql-replayer
-RUN make build && \
-    strip ./out/bin/slowql-replayer && \
-    /usr/local/bin/upx -9 ./out/bin/slowql-replayer
+WORKDIR /app
+RUN make replayer && \
+    strip ./bin/replayer && \
+    /usr/local/bin/upx -9 ./bin/replayer
 
 # Run stage
 FROM gcr.io/distroless/base-debian10
-COPY --from=builder /app/cmd/slowql-replayer/out/bin /app
-COPY --from=builder /app/slowquery.log /app
+COPY --from=builder /app/bin /app
 WORKDIR /app
-ENTRYPOINT ["./slowql-replayer"]
+ENTRYPOINT ["./replayer"]

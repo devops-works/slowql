@@ -68,6 +68,20 @@ By default, `digest` will try to read from a cache located at the same emplaceme
 
 You can disable the cache with the option `-no-cache`.
 
+## Docker
+
+The file `Dockerfile.digest` allows you to build the Docker image of `digest`:
+
+```
+$ docker build -f Dockerfile.digest -t dw/digest .
+```
+
+By default, `digest` looks for file called `slowquery.log` at `/log`. So you can provide the file by sharing it via a volume, and then give the arguments:
+
+```
+$ docker run --rm -v /path/to/slowquery/file/local-slowquery.log:/log/slowquery.log  dw/digest -k mysql
+```
+
 ## Supported databases
 
 We successfully tested `digest` on:
@@ -77,7 +91,7 @@ We successfully tested `digest` on:
 - [ ] Percona-db
 - [X] Percona-cluster
 
-**Note:** `slowql-digest` relies heavily on the `slowql` package, so if a database is missing in the package, it will not be present in the replayer.
+**Note:** `slowql-digest` relies heavily on the `slowql` package, so if a database is missing in the package, it will not be present in the digester.
 
 ## License
 

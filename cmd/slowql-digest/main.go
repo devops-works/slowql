@@ -79,7 +79,7 @@ var orders = []string{"bytes_sent", "calls", "concurrency", "killed", "lock_time
 
 func main() {
 	var o options
-	flag.StringVar(&o.logfile, "f", "", "Slow query log file to digest "+Red("(required)").String())
+	flag.StringVar(&o.logfile, "f", "/log/slowquery.log", "Slow query log file to digest "+Red("(required)").String())
 	flag.StringVar(&o.loglevel, "l", "info", "Log level")
 	flag.StringVar(&o.kind, "k", "", "Database kind. Use ? to see all the available values  "+Red("(required)").String())
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")

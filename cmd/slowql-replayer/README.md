@@ -95,13 +95,19 @@ Statistics
 
 ## Docker
 
-Build the image (you need to be at the root of the repo):
+The file `Dockerfile.replayer` allows you to build the Docker image of `replayer`:
 
 ```
-$ docker build -f Dockerfile.replayer -t slowql-replayer
-...
-$ docker run --rm -it slowql-replayer [OPTIONS]
+$ docker build -f Dockerfile.replayer -t dw/replayer .
 ```
+
+By default, `replayer` looks for file called `slowquery.log` at `/log`. So you can provide the file by sharing it via a volume, and then give the arguments:
+
+```
+$ docker run --rm -it -v /path/to/slowquery/file/local-slowquery.log:/log/slowquery.log  dw/replayer [OPTIONS (without -f)]
+```
+
+**NOTE:** don't forget to add the option `-it` if you want to use a password !
 
 ### Adjustments
 
