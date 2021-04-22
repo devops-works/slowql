@@ -31,7 +31,7 @@ You can find the latest version in the [releases](https://github.com/devops-work
 ## Usage
 
 ```
-Usage of slowql-replayer:
+Usage of replayer:
   -db string
         Name of the database to use
   -f string
@@ -62,7 +62,7 @@ Usage of slowql-replayer:
 A typical example might be:
 
 ```
-$ ./slowql-replayer -u ezekiel -p -h 192.168.1.2:3306 -k mysql -f ~/files/databases/log/mysql.log -db mydb
+$ ./replayer -u ezekiel -p -h 192.168.1.2:3306 -k mysql -f ~/files/databases/log/mysql.log -db mydb
 ```
 
 By adding `-no-dry-run`, it will send the queries to the database for real.
@@ -135,19 +135,12 @@ The following table shows all the accepted values for `-k`
 
 ## Supported databases
 
-We successfully tested `slowql-replay` on:
+We successfully tested `replayer` on:
 
-* Locally
-    - [X] MySQL
-    - [X] MariaDB
-    - [ ] Percona-db
-    - [X] Percona-cluster
-
-* In real life
-    - [ ] MySQL
-    - [ ] MariaDB
-    - [ ] Percona-db
-    - [ ] Percona-cluster
+- [X] MySQL
+- [X] MariaDB
+- [ ] Percona-db
+- [X] Percona-cluster
 
 **Note:** `slowql-replayer` relies heavily on the `slowql` package, so if a database is missing in the package, it will not be present in the replayer.
 
