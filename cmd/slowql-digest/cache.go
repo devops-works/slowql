@@ -17,6 +17,7 @@ type results struct {
 	Date          time.Time     `json:"date"`
 	TotalDuration time.Duration `json:"total_duration"`
 	Hash          string        `json:"hash"`
+	ServerMeta    serverMeta    `json:"server_meta"`
 	Data          []statistics  `json:"data"`
 }
 

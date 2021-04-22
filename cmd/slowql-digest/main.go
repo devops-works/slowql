@@ -13,6 +13,7 @@ import (
 
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
+	"github.com/devops-works/slowql/server"
 	. "github.com/logrusorgru/aurora"
 	"github.com/sirupsen/logrus"
 )
@@ -58,6 +59,19 @@ type statistics struct {
 	P95Time         float64
 	StddevTime      float64
 	QueryTimes      []float64
+}
+
+type serverMeta struct {
+	Binary             string
+	Port               int
+	Socket             string
+	Version            string
+	VersionShort       string
+	VersionDescription string
+
+	Duration     time.Duration
+	RealDuration time.Duration
+	Bytes        int
 }
 
 var orders = []string{"bytes_sent", "calls", "concurrency", "killed", "lock_time",
@@ -138,7 +152,7 @@ func main() {
 					a.logger.Fatalf("cannot sort results: %s", err)
 				}
 			}
-			showResults(stats, o.order, o.top, o.dec, res.TotalDuration)
+			showResults(stats, res.ServerMeta, o.order, o.top, o.dec)
 			return
 		}
 		a.logger.Info("cache will not be used")
@@ -166,8 +180,8 @@ func main() {
 
 	var q query.Query
 	var wg sync.WaitGroup
-	firstPass := true
 	var realStart, realEnd time.Time
+	firstPass := true
 	a.p = slowql.NewParser(a.kind, a.fd)
 	a.logger.Debug("slowql parser created")
 	a.logger.Debug("query analysis started")
@@ -194,16 +208,24 @@ func main() {
 	a.logger.Infof("parsed %d queries", a.queriesNumber)
 	a.logger.Infof("found %d different queries hashs", len(a.res))
 
+	srv := a.p.GetServerMeta()
+	srvMeta := getMeta(srv)
+	srvMeta.Duration = a.digestDuration
+
 	var res []statistics
 	for _, val := range a.res {
 		res = append(res, val)
+		srvMeta.Bytes += val.CumBytesSent
 	}
 
 	realDuration := realEnd.Sub(realStart)
+	srvMeta.RealDuration = realDuration
+
 	res, err = computeStats(res, realDuration)
 	if err != nil {
 		a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats")
 	}
+
 	res, err = sortResults(res, o.order, o.dec)
 	if err != nil {
 		a.logger.Errorf("cannot sort results: %s", err)
@@ -214,7 +236,7 @@ func main() {
 		}
 	}
 
-	showResults(res, o.order, o.top, o.dec, realDuration)
+	showResults(res, srvMeta, o.order, o.top, o.dec)
 	if !o.nocache {
 		a.logger.Info("saving results in cache file")
 		cache := results{
@@ -222,6 +244,7 @@ func main() {
 			Date:          time.Now(),
 			TotalDuration: realDuration,
 			Data:          res,
+			ServerMeta:    srvMeta,
 		}
 		if err := saveCache(cache); err != nil {
 			a.logger.Errorf("cannot save results in cache file: %s", err)
@@ -230,11 +253,40 @@ func main() {
 	a.logger.Debug("end of program, exiting")
 }
 
-func showResults(res []statistics, order string, count int, dec bool, realDuration time.Duration) {
+func showResults(res []statistics, sm serverMeta, order string, count int, dec bool) {
 	howTo := "increasing"
 	if dec {
 		howTo = "decreasing"
 	}
+
+	// show server's meta
+	fmt.Printf(`
+=-= Server meta =-=
+	
+Binary              : %s
+Port                : %d
+Socket              : %s
+Version             : %s
+Version short       : %s
+Version description : %s
+
+Digest duration     : %s
+Real duration       : %s
+
+Bytes handled       : %d
+	`,
+		sm.Binary,
+		sm.Port,
+		sm.Socket,
+		sm.Version,
+		sm.VersionShort,
+		sm.VersionDescription,
+		sm.Duration,
+		sm.RealDuration,
+		sm.Bytes)
+
+	// show queries stats
+	fmt.Printf("\n=-= Queries stats =-=\n")
 	fmt.Printf("\nSorted by: %s, %s\n", Bold(order), Bold(howTo))
 	fmt.Printf("Showing top %d queries\n", Bold(count))
 	for i := 0; i < len(res); i++ {
@@ -367,4 +419,15 @@ func sortResults(s []statistics, order string, dec bool) ([]statistics, error) {
 		}
 	}
 	return s, nil
+}
+
+func getMeta(srv server.Server) serverMeta {
+	var sm serverMeta
+	sm.Binary = srv.Binary
+	sm.Port = srv.Port
+	sm.Socket = srv.Socket
+	sm.Version = srv.Version
+	sm.VersionShort = srv.VersionShort
+	sm.VersionDescription = srv.VersionDescription
+	return sm
 }
