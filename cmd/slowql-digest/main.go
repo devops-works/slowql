@@ -141,7 +141,7 @@ func main() {
 			a.logger.Infof("cache has timestamp: %s", res.Date)
 			stats, err := computeStats(cacheResults, res.TotalDuration)
 			if err != nil {
-				a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats")
+				a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats", err)
 			}
 			stats, err = sortResults(stats, o.order, o.dec)
 			if err != nil {
@@ -223,7 +223,7 @@ func main() {
 
 	res, err = computeStats(res, realDuration)
 	if err != nil {
-		a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats")
+		a.logger.Errorf("cannot compute statistics: %s. This can lead to inacurrate stats", err)
 	}
 
 	res, err = sortResults(res, o.order, o.dec)
