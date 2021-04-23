@@ -35,7 +35,7 @@ func main() {
     // Imagine that fd is an io.Reader of your slow query logs file...
 
     // Create the parser
-    p := slowql.NewParser(fd)
+    p := slowql.NewParser(slowql.MySQL, fd)
 
     // Get the next query from the log
     q, err := p.GetNext()
