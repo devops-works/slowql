@@ -97,6 +97,12 @@ func scan(s bufio.Scanner, rawBlocks, servermeta chan []string) {
 	var bloc []string
 	inHeader, inQuery := false, false
 
+	// initial buffer size (64k)
+	buf := make([]byte, 0, 64*1024)
+	// allow scanner to allocate up to 1024k
+	// by default bufio.MaxScanTokenSize (65536) is used
+	s.Buffer(buf, 1024*1024)
+
 	// Parse the server informations
 	var lines []string
 	for i := 0; i < 3; i++ {
