@@ -275,7 +275,7 @@ func (db *database) replay(f io.Reader, totQ int, hidePB bool) (results, error) 
 	var bar *pb.ProgressBar
 	// start all the progress bar stuff is asked
 	if !hidePB {
-		tmpl := `{{counters .}} {{ bar . "[" ("▉" | green) (cycle . "▉" " " | green ) "." "]"}} {{speed .}} {{percent .}}`
+		tmpl := `{{counters .}} {{ bar . "[" ("▉" | green) (cycle . "▉" " " | green ) "." "]"}} {{speed .}} {{rtime . "ETA %s"}} {{percent .}}`
 		bar = pb.ProgressBarTemplate(tmpl).Start(totQ)
 		bar.SetRefreshRate(400 * time.Millisecond)
 		go updateBar(bar, queries)
