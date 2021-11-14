@@ -50,7 +50,7 @@ func TestDatabase_parseMariaDBHeader(t *testing.T) {
 			refQuery: query.Query{
 				ID:     12794,
 				Schema: "",
-				QC_hit: false,
+				QCHit: false,
 			},
 		},
 		{
@@ -168,7 +168,7 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 				RowsAffected: 0,
 				BytesSent:    11,
 				Query:        "SET timestamp=1616499117;SET NAMES utf8mb4;",
-				QC_hit:       false,
+				QCHit:       false,
 			},
 		},
 	}

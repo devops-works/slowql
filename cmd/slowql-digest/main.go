@@ -14,7 +14,7 @@ import (
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/query"
 	"github.com/devops-works/slowql/server"
-	. "github.com/logrusorgru/aurora"
+	ar "github.com/logrusorgru/aurora"
 	"github.com/sirupsen/logrus"
 )
 
@@ -68,9 +68,9 @@ var orders = []string{"bytes_sent", "calls", "concurrency", "killed", "lock_time
 
 func main() {
 	var o options
-	flag.StringVar(&o.logfile, "f", "/log/slowquery.log", "Slow query log file to digest "+Red("(required)").String())
+	flag.StringVar(&o.logfile, "f", "/log/slowquery.log", "Slow query log file to digest "+ar.Red("(required)").String())
 	flag.StringVar(&o.loglevel, "l", "info", "Log level")
-	flag.StringVar(&o.kind, "k", "", "Database kind. Use ? to see all the available values  "+Red("(required)").String())
+	flag.StringVar(&o.kind, "k", "", "Database kind. Use ? to see all the available values  "+ar.Red("(required)").String())
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")
 	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. Use ? to see all the available values")
 	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
@@ -277,8 +277,8 @@ Bytes handled       : %d
 
 	// show queries stats
 	fmt.Printf("\n=-= Queries stats =-=\n")
-	fmt.Printf("\nSorted by: %s, %s\n", Bold(order), Bold(howTo))
-	fmt.Printf("Showing top %d queries\n", Bold(count))
+	fmt.Printf("\nSorted by: %s, %s\n", ar.Bold(order), ar.Bold(howTo))
+	fmt.Printf("Showing top %d queries\n", ar.Bold(count))
 	for i := 0; i < len(res); i++ {
 		if count == 0 {
 			break
@@ -300,8 +300,8 @@ Cum Bytes sent         : %d
 Cum Rows Examined/Sent : %d/%d
 Cum Killed             : %d
 			`,
-			Bold(Underline("Query #")),
-			Bold(Underline(i+1)),
+			ar.Bold(ar.Underline("Query #")),
+			ar.Bold(ar.Underline(i+1)),
 			res[i].Calls,
 			res[i].Hash,
 			res[i].Fingerprint,

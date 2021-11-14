@@ -16,7 +16,7 @@ import (
 	"github.com/devops-works/slowql"
 	"github.com/devops-works/slowql/cmd/slowql-replayer/pprof"
 	"github.com/devops-works/slowql/query"
-	. "github.com/logrusorgru/aurora"
+	ar "github.com/logrusorgru/aurora"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 
@@ -69,7 +69,7 @@ func main() {
 	var opt options
 
 	flag.StringVar(&opt.user, "u", "", "User to use to connect to database")
-	flag.StringVar(&opt.host, "h", "", "Addres of the database, with IP and port")
+	flag.StringVar(&opt.host, "h", "", "Address of the database, with IP and port")
 	flag.StringVar(&opt.file, "f", "/log/slowquery.log", "Slow query log file to use")
 	flag.StringVar(&opt.kind, "k", "", "Kind of the database (mysql, mariadb...)")
 	flag.StringVar(&opt.database, "db", "", "Name of the database to use")
@@ -373,25 +373,25 @@ Statistics
 
 %s: the replayer may take a little more time due to the numerous conditions that are verified during the replay.
 `,
-		Bold(r.duration),
-		Bold(r.realDuration),
-		Bold(o.file),
-		Bold(r.dryRun),
-		Bold(o.workers),
+		ar.Bold(r.duration),
+		ar.Bold(r.realDuration),
+		ar.Bold(o.file),
+		ar.Bold(r.dryRun),
+		ar.Bold(o.workers),
 		// database
-		Bold(r.kind),
-		Bold(o.user),
-		Bold(o.usePass),
-		Bold(o.host),
+		ar.Bold(r.kind),
+		ar.Bold(o.user),
+		ar.Bold(o.usePass),
+		ar.Bold(o.host),
 		// statistics
-		Bold(r.queries),
-		Bold(r.errors),
-		Bold(prcSuccess),
-		Bold(o.factor),
-		Bold(durationDelta),
-		Bold(prcSpeedStr),
+		ar.Bold(r.queries),
+		ar.Bold(r.errors),
+		ar.Bold(prcSuccess),
+		ar.Bold(o.factor),
+		ar.Bold(durationDelta),
+		ar.Bold(prcSpeedStr),
 		// footnote
-		Bold(Yellow("Note")),
+		ar.Bold(ar.Yellow("Note")),
 	)
 }
 
@@ -439,7 +439,7 @@ func (r *results) errorsCollector(errors chan error, showErrors bool) {
 		}
 		r.errors++
 		if showErrors {
-			fmt.Printf("\n%s: %s\n", Red("SQL error"), e.Error())
+			fmt.Printf("\n%s: %s\n", ar.Red("SQL error"), e.Error())
 		}
 	}
 }

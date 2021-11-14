@@ -1,18 +1,21 @@
 # slowql
 
+[![Go Reference](https://pkg.go.dev/badge/devops-works/slowql.svg)](https://pkg.go.dev/devops-works/slowql)
+[![Go Report Card](https://goreportcard.com/badge/github.com/devops-works/slowql)](https://goreportcard.com/report/github.com/devops-works/slowql)
+
 A slow query logs parser in Golang.
 
 - [slowql](#slowql)
-  - [Gettin' started](#gettin-started)
+  - [Getting started](#getting-started)
   - [Basic usage](#basic-usage)
-  - [Performances](#performances)
+  - [Performance](#performance)
   - [Associated tools](#associated-tools)
   - [Notes](#notes)
     - [Tested databases](#tested-databases)
   - [Contributing](#contributing)
   - [License](#license)
 
-## Gettin' started
+## Getting started
 
 ```
 go get github.com/devops-works/slowql

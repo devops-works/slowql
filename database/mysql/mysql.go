@@ -168,6 +168,6 @@ func (db *Database) ParseServerMeta(lines chan []string) {
 }
 
 // GetServerMeta returns server meta information
-func (p *Database) GetServerMeta() server.Server {
-	return p.srv
+func (db *Database) GetServerMeta() server.Server {
+	return db.srv
 }

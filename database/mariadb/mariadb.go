@@ -30,6 +30,7 @@ func New(qc chan query.Query) *Database {
 	return &p
 }
 
+// ParseBlocks reads a query block and adds it into a channel
 func (db *Database) ParseBlocks(rawBlocs chan []string) {
 	for {
 		select {
@@ -120,9 +121,9 @@ func (db *Database) parseMariaDBHeader(line string, q *query.Query) {
 			q.Schema = parts[idx+1]
 
 		} else if strings.Contains(part, "qc_hit:") {
-			q.QC_hit = true
+			q.QCHit = true
 			if parts[idx+1] == "No" {
-				q.QC_hit = false
+				q.QCHit = false
 			}
 		} else if strings.Contains(part, "bytes_sent:") {
 			q.BytesSent, err = strconv.Atoi(parts[idx+1])
@@ -133,6 +134,7 @@ func (db *Database) parseMariaDBHeader(line string, q *query.Query) {
 	}
 }
 
+// ParseServerMeta reads slowquerylog metadata and adds it into a channel
 func (db *Database) ParseServerMeta(lines chan []string) {
 	header := <-lines
 	versions := header[0]
@@ -159,6 +161,6 @@ func (db *Database) ParseServerMeta(lines chan []string) {
 	}
 }
 
-func (d *Database) GetServerMeta() server.Server {
-	return d.srv
+func (db *Database) GetServerMeta() server.Server {
+	return db.srv
 }

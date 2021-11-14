@@ -18,5 +18,5 @@ type Query struct {
 	Host         string
 	Schema       string
 	Query        string
-	QC_hit       bool
+	QCHit        bool
 }
