@@ -77,10 +77,11 @@ func main() {
 	flag.StringVar(&opt.pprof, "pprof", "", "pprof server address")
 	flag.IntVar(&opt.workers, "w", 100, "Number of maximum simultaneous connections to database")
 	flag.Float64Var(&opt.factor, "x", 1, "Speed factor")
-	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to database")
+	flag.BoolVar(&opt.usePass, "p", false, "Use a password to connect to the database (asked interactively if --password is not set")
+	flag.StringVar(&opt.pass, "password", "", "Password to connect to te database")
 	flag.BoolVar(&opt.noDryRun, "no-dry-run", false, "Replay the requests on the database for real")
 	flag.BoolVar(&opt.showErrors, "show-errors", false, "Show SQL errors when they occur")
-	flag.BoolVar(&opt.hidePB, "hide-progress", false, "Hide progress bar while replaying")
+	flag.BoolVar(&opt.hidePB, "no-progress", false, "Hide progress bar while replaying")
 	flag.Parse()
 
 	if errs := opt.parse(); len(errs) > 0 {
@@ -165,7 +166,7 @@ func (o *options) parse() []error {
 		return errs
 	}
 
-	if o.usePass {
+	if o.usePass && o.pass == ""{
 		fmt.Printf("Password: ")
 		bytes, err := term.ReadPassword(syscall.Stdin)
 		if err != nil {
