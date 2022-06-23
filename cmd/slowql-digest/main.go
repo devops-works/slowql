@@ -70,7 +70,7 @@ func main() {
 	var o options
 	flag.StringVar(&o.logfile, "f", "/log/slowquery.log", "Slow query log file to digest "+ar.Red("(required)").String())
 	flag.StringVar(&o.loglevel, "l", "info", "Log level")
-	flag.StringVar(&o.kind, "k", "", "Database kind. Use ? to see all the available values  "+ar.Red("(required)").String())
+	flag.StringVar(&o.kind, "k", "mysql", "Database kind. Use ? to see all the available values.")
 	flag.IntVar(&o.top, "top", 3, "Top queries to show")
 	flag.StringVar(&o.order, "sort-by", "random", "How to sort queries. Use ? to see all the available values")
 	flag.BoolVar(&o.dec, "dec", false, "Sort by decreasing order")
@@ -85,7 +85,7 @@ func main() {
 		return
 	}
 
-	dbKinds := []string{"mariadb", "mysql", "pxc"}
+	dbKinds := []string{"mariadb", "mysql", "pxc", "percona"}
 	if o.kind == "?" {
 		fmt.Println("Available values:")
 		for _, val := range dbKinds {

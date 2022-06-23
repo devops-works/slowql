@@ -21,7 +21,7 @@ func main() {
 		panic(err)
 	}
 
-	p := slowql.NewParser(slowql.MySQL, fd)
+	p := slowql.NewParser(slowql.PerconaDB, fd)
 	srv := p.GetServerMeta()
 	showServer(srv)
 

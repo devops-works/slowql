@@ -71,7 +71,7 @@ func main() {
 	flag.StringVar(&opt.user, "u", "", "User to use to connect to database")
 	flag.StringVar(&opt.host, "h", "", "Address of the database, with IP and port")
 	flag.StringVar(&opt.file, "f", "/log/slowquery.log", "Slow query log file to use")
-	flag.StringVar(&opt.kind, "k", "", "Kind of the database (mysql, mariadb...)")
+	flag.StringVar(&opt.kind, "k", "", "Kind of database (mysql, mariadb, pxc, percona)")
 	flag.StringVar(&opt.database, "db", "", "Name of the database to use")
 	flag.StringVar(&opt.loglvl, "l", "info", "Logging level")
 	flag.StringVar(&opt.pprof, "pprof", "", "pprof server address")
@@ -166,7 +166,7 @@ func (o *options) parse() []error {
 		return errs
 	}
 
-	if o.usePass && o.pass == ""{
+	if o.usePass && o.pass == "" {
 		fmt.Printf("Password: ")
 		bytes, err := term.ReadPassword(syscall.Stdin)
 		if err != nil {
@@ -192,6 +192,8 @@ func (o options) createDB() (*database, error) {
 		db.kind = slowql.MariaDB
 	case "pxc":
 		db.kind = slowql.PXC
+	case "percona":
+		db.kind = slowql.PerconaDB
 	default:
 		return nil, errors.New("unknown kind " + o.kind)
 	}

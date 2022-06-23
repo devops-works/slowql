@@ -55,6 +55,8 @@ func newApp(loglevel, kind string) (*app, error) {
 		a.kind = slowql.MariaDB
 	case "pxc":
 		a.kind = slowql.PXC
+	case "percona":
+		a.kind = slowql.PerconaDB
 	default:
 		return nil, errors.New("kind not recognised: " + kind)
 	}

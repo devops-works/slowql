@@ -12,6 +12,7 @@ import (
 
 	"github.com/devops-works/slowql/database/mariadb"
 	"github.com/devops-works/slowql/database/mysql"
+	"github.com/devops-works/slowql/database/percona"
 	"github.com/devops-works/slowql/query"
 	"github.com/devops-works/slowql/server"
 	"github.com/sirupsen/logrus"
@@ -29,6 +30,8 @@ const (
 	MariaDB
 	// PXC type
 	PXC
+	// PerconaDB type
+	PerconaDB
 )
 
 // Database is the parser interface
@@ -65,6 +68,8 @@ func NewParser(k Kind, r io.Reader) Parser {
 		p.db = mysql.New(p.waitingList)
 	case MariaDB:
 		p.db = mariadb.New(p.waitingList)
+	case PerconaDB:
+		p.db = percona.New(p.waitingList)
 	}
 
 	p.db.ParseServerMeta(p.servermeta)
