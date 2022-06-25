@@ -50,7 +50,7 @@ func TestDatabase_parseMariaDBHeader(t *testing.T) {
 			refQuery: query.Query{
 				ID:     12794,
 				Schema: "",
-				QCHit: false,
+				QCHit:  false,
 			},
 		},
 		{
@@ -168,7 +168,7 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 				RowsAffected: 0,
 				BytesSent:    11,
 				Query:        "SET timestamp=1616499117;SET NAMES utf8mb4;",
-				QCHit:       false,
+				QCHit:        false,
 			},
 		},
 	}
@@ -183,6 +183,37 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 			if q != tt.refQuery {
 				t.Errorf("got = %v, want = %v", q, tt.refQuery)
 			}
+		})
+	}
+}
+
+func TestDatabase_ParseEmptyBlocs(t *testing.T) {
+	tests := []struct {
+		name string
+		bloc []string
+	}{
+		{
+			name: "testing",
+			bloc: []string{
+				"# Time: 210323 11:31:57",
+				"# User@Host: hugo[hugo] @  [172.18.0.3]",
+				"# Thread_id: 12794  Schema:   QC_hit: No",
+				"# Query_time: 0.000035  Lock_time: 0.000000  Rows_sent: 0  Rows_examined: 0",
+				"# Rows_affected: 0  Bytes_sent: 11",
+				"",
+				"SET NAMES utf8mb4;",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		rawBlocs := make(chan []string, 10)
+		qc := make(chan query.Query)
+		db := New(qc)
+		t.Run(tt.name, func(t *testing.T) {
+			rawBlocs <- tt.bloc
+			go db.ParseBlocks(rawBlocs)
+			<-db.WaitingList
 		})
 	}
 }

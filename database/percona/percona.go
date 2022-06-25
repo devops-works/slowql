@@ -37,6 +37,9 @@ func (db *Database) ParseBlocks(rawBlocs chan []string) {
 			var q query.Query
 
 			for _, line := range bloc {
+				if len(line) == 0 {
+					continue
+				}
 				if line[0] == '#' {
 					db.parseMySQLHeader(line, &q)
 				} else {
