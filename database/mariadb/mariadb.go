@@ -41,7 +41,11 @@ func (db *Database) ParseBlocks(rawBlocs chan []string) {
 				if line[0] == '#' {
 					db.parseMariaDBHeader(line, &q)
 				} else {
-					q.Query = strings.TrimSpace(q.Query + " " + line)
+					if strings.HasSuffix(q.Query,";") || q.Query == "" {
+						q.Query = q.Query + line
+					}else{
+						q.Query = q.Query + " " + line
+					}
 				}
 			}
 			db.WaitingList <- q
