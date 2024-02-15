@@ -50,7 +50,7 @@ func TestDatabase_parseMariaDBHeader(t *testing.T) {
 			refQuery: query.Query{
 				ID:     12794,
 				Schema: "",
-				QCHit: false,
+				QCHit:  false,
 			},
 		},
 		{
@@ -152,6 +152,32 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 				"# Thread_id: 12794  Schema:   QC_hit: No",
 				"# Query_time: 0.000035  Lock_time: 0.000000  Rows_sent: 0  Rows_examined: 0",
 				"# Rows_affected: 0  Bytes_sent: 11",
+				"SELECT col1 AS c1",
+				"FROM table1 AS t1;",
+			},
+			refQuery: query.Query{
+				Time:         parseTime("210323 11:31:57"),
+				User:         "hugo",
+				Host:         "172.18.0.3",
+				ID:           12794,
+				Schema:       "",
+				QueryTime:    0.000035,
+				LockTime:     0.000000,
+				RowsSent:     0,
+				RowsExamined: 0,
+				RowsAffected: 0,
+				BytesSent:    11,
+				Query:        "SELECT col1 AS c1 FROM table1 AS t1;",
+				QCHit:        false,
+			},
+		}, {
+			name: "testing",
+			bloc: []string{
+				"# Time: 210323 11:31:57",
+				"# User@Host: hugo[hugo] @  [172.18.0.3]",
+				"# Thread_id: 12794  Schema:   QC_hit: No",
+				"# Query_time: 0.000035  Lock_time: 0.000000  Rows_sent: 0  Rows_examined: 0",
+				"# Rows_affected: 0  Bytes_sent: 11",
 				"SET timestamp=1616499117;",
 				"SET NAMES utf8mb4;",
 			},
@@ -168,7 +194,7 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 				RowsAffected: 0,
 				BytesSent:    11,
 				Query:        "SET timestamp=1616499117;SET NAMES utf8mb4;",
-				QCHit:       false,
+				QCHit:        false,
 			},
 		},
 	}
@@ -184,5 +210,14 @@ func TestDatabase_ParseBlocs(t *testing.T) {
 				t.Errorf("got = %v, want = %v", q, tt.refQuery)
 			}
 		})
+	}
+}
+
+func BenchmarkParseBlocks(b *testing.B) {
+	blocks := []string{`SELECT col1 AS c1`, `FROM table1 AS t1;`}
+	db := New(nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		db.parseQuery(blocks)
 	}
 }

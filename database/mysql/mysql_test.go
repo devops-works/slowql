@@ -185,3 +185,12 @@ func TestDatabase_ParseBlocks(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkParseBlocks(b *testing.B) {
+	blocks := []string{`SELECT col1 AS c1`, `FROM table1 AS t1;`}
+	db := New(nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		db.parseQuery(blocks)
+	}
+}

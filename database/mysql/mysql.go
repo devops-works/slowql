@@ -34,22 +34,25 @@ func (db *Database) ParseBlocks(rawBlocs chan []string) {
 	for {
 		select {
 		case bloc := <-rawBlocs:
-			var q query.Query
-
-			for _, line := range bloc {
-				if line[0] == '#' {
-					db.parseMySQLHeader(line, &q)
-				} else {
-					if strings.HasSuffix(q.Query,";") || q.Query == "" {
-						q.Query = q.Query + line
-					}else{
-						q.Query = q.Query + " " + line
-					}
-				}
-			}
-			db.WaitingList <- q
+			db.WaitingList <- db.parseQuery(bloc)
 		}
 	}
+}
+
+func (db *Database) parseQuery(block []string) query.Query {
+	var q query.Query
+	for _, line := range block {
+		if line[0] == '#' {
+			db.parseMySQLHeader(line, &q)
+		} else {
+			if strings.HasSuffix(q.Query, ";") || q.Query == "" {
+				q.Query = q.Query + line
+			} else {
+				q.Query = q.Query + " " + line
+			}
+		}
+	}
+	return q
 }
 
 func (db *Database) parseMySQLHeader(line string, q *query.Query) {
